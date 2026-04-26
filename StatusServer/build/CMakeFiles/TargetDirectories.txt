@@ -1,0 +1,3 @@
+/home/chen/linux/project/StatusServer/build/CMakeFiles/rebuild_cache.dir
+/home/chen/linux/project/StatusServer/build/CMakeFiles/edit_cache.dir
+/home/chen/linux/project/StatusServer/build/CMakeFiles/StatusServer.dir

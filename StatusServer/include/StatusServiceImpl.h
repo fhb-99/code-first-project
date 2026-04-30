@@ -29,6 +29,7 @@ public:
 
     std::vector<ChatServer> _servers;
     std::atomic<std::size_t> _server_index{0};
+    // Kept for compatibility/debug; Redis is the source of truth for tokens.
     std::unordered_map<int, std::string> _tokens;
     std::mutex _token_mtx;
     //int _server_index;

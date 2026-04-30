@@ -1,6 +1,7 @@
 #include "StatusServiceImpl.h"
 #include "ConfigMgr.h"
 #include "global.h"
+#include "RedisMgr.h"
 
 #include <string>
 #include <boost/uuid/uuid.hpp>
@@ -53,6 +54,10 @@ Status StatusServiceImpl::GetChatServer(ServerContext *context, const GetChatSer
         std::lock_guard<std::mutex> guard(_token_mtx);
         _tokens[uid] = token;
     }
+
+    // Persist token in Redis so ChatServer can verify across processes/restarts.
+    const std::string token_key = std::string(USERTOKENPREFIX) + std::to_string(uid);
+    (void)RedisMgr::GetInstance()->Set(token_key, token, 600);
     std::cout << "get ChatServer ip: " << server.host << std::endl;
     std::cout << "port is: " << server.port << std::endl;
     return Status::OK;
@@ -63,18 +68,19 @@ Status StatusServiceImpl::Login(ServerContext* context, const LoginRequest* requ
 {
     const auto uid = request->uid();
     const auto token = request->token();
-    std::lock_guard<std::mutex> guard(_token_mtx);
-    auto iter = _tokens.find(uid);
-    if (iter == _tokens.end()) 
-    {
+
+    // Prefer Redis as the source of truth (ChatServer checks Redis).
+    const std::string token_key = std::string(USERTOKENPREFIX) + std::to_string(uid);
+    std::string token_value;
+    if (!RedisMgr::GetInstance()->Get(token_key, token_value)) {
         reply->set_error(ErrorCodes::UidInvalid);
         return Status::OK;
     }
-    if (iter->second != token) 
-    {
+    if (token_value != token) {
         reply->set_error(ErrorCodes::TokenInvalid);
         return Status::OK;
     }
+
     reply->set_error(ErrorCodes::Success);
     reply->set_uid(uid);
     reply->set_token(token);

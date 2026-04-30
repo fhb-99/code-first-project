@@ -258,6 +258,33 @@ src/ChatGrpcClient.cpp.s:
 	$(MAKE) -f CMakeFiles/ChatServer.dir/build.make CMakeFiles/ChatServer.dir/src/ChatGrpcClient.cpp.s
 .PHONY : src/ChatGrpcClient.cpp.s
 
+src/ChatServiceImpl.o: src/ChatServiceImpl.cpp.o
+
+.PHONY : src/ChatServiceImpl.o
+
+# target to build an object file
+src/ChatServiceImpl.cpp.o:
+	$(MAKE) -f CMakeFiles/ChatServer.dir/build.make CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o
+.PHONY : src/ChatServiceImpl.cpp.o
+
+src/ChatServiceImpl.i: src/ChatServiceImpl.cpp.i
+
+.PHONY : src/ChatServiceImpl.i
+
+# target to preprocess a source file
+src/ChatServiceImpl.cpp.i:
+	$(MAKE) -f CMakeFiles/ChatServer.dir/build.make CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.i
+.PHONY : src/ChatServiceImpl.cpp.i
+
+src/ChatServiceImpl.s: src/ChatServiceImpl.cpp.s
+
+.PHONY : src/ChatServiceImpl.s
+
+# target to generate assembly for a file
+src/ChatServiceImpl.cpp.s:
+	$(MAKE) -f CMakeFiles/ChatServer.dir/build.make CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.s
+.PHONY : src/ChatServiceImpl.cpp.s
+
 src/ConfigMgr.o: src/ConfigMgr.cpp.o
 
 .PHONY : src/ConfigMgr.o
@@ -525,6 +552,9 @@ help:
 	@echo "... src/ChatGrpcClient.o"
 	@echo "... src/ChatGrpcClient.i"
 	@echo "... src/ChatGrpcClient.s"
+	@echo "... src/ChatServiceImpl.o"
+	@echo "... src/ChatServiceImpl.i"
+	@echo "... src/ChatServiceImpl.s"
 	@echo "... src/ConfigMgr.o"
 	@echo "... src/ConfigMgr.i"
 	@echo "... src/ConfigMgr.s"

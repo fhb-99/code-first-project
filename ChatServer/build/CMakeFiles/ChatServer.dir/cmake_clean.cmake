@@ -8,6 +8,7 @@ file(REMOVE_RECURSE
   "CMakeFiles/ChatServer.dir/src/CServer.cpp.o"
   "CMakeFiles/ChatServer.dir/src/CSession.cpp.o"
   "CMakeFiles/ChatServer.dir/src/ChatGrpcClient.cpp.o"
+  "CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o"
   "CMakeFiles/ChatServer.dir/src/ConfigMgr.cpp.o"
   "CMakeFiles/ChatServer.dir/src/LogicSystem.cpp.o"
   "CMakeFiles/ChatServer.dir/src/MsgNode.cpp.o"

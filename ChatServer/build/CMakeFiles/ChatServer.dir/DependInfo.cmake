@@ -9,6 +9,7 @@ set(CMAKE_DEPENDS_CHECK_CXX
   "/home/chen/linux/project/ChatServer/src/CServer.cpp" "/home/chen/linux/project/ChatServer/build/CMakeFiles/ChatServer.dir/src/CServer.cpp.o"
   "/home/chen/linux/project/ChatServer/src/CSession.cpp" "/home/chen/linux/project/ChatServer/build/CMakeFiles/ChatServer.dir/src/CSession.cpp.o"
   "/home/chen/linux/project/ChatServer/src/ChatGrpcClient.cpp" "/home/chen/linux/project/ChatServer/build/CMakeFiles/ChatServer.dir/src/ChatGrpcClient.cpp.o"
+  "/home/chen/linux/project/ChatServer/src/ChatServiceImpl.cpp" "/home/chen/linux/project/ChatServer/build/CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o"
   "/home/chen/linux/project/ChatServer/src/ConfigMgr.cpp" "/home/chen/linux/project/ChatServer/build/CMakeFiles/ChatServer.dir/src/ConfigMgr.cpp.o"
   "/home/chen/linux/project/ChatServer/src/LogicSystem.cpp" "/home/chen/linux/project/ChatServer/build/CMakeFiles/ChatServer.dir/src/LogicSystem.cpp.o"
   "/home/chen/linux/project/ChatServer/src/MsgNode.cpp" "/home/chen/linux/project/ChatServer/build/CMakeFiles/ChatServer.dir/src/MsgNode.cpp.o"

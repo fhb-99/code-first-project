@@ -12,8 +12,12 @@
 #include <QtCore/QVariant>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QDialog>
+#include <QtWidgets/QFrame>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QListWidget>
+#include <QtWidgets/QPushButton>
 #include <QtWidgets/QSpacerItem>
 #include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QVBoxLayout>
@@ -45,9 +49,11 @@ public:
     StateWidget *side_contact_lb;
     QWidget *widget;
     QSpacerItem *verticalSpacer;
-    QStackedWidget *chat_user_wid;
-    QWidget *chat_user_widPage1;
+    QWidget *chat_user_wid;
     QVBoxLayout *verticalLayout;
+    QStackedWidget *stackedWidget_2;
+    QWidget *page;
+    QVBoxLayout *verticalLayout_2;
     QWidget *search_wid;
     QHBoxLayout *horizontalLayout_2;
     CustomizeEdit *search_edit;
@@ -56,6 +62,25 @@ public:
     SearchList *search_list;
     ChatUserList *chat_user_list;
     ContactUserList *con_user_list;
+    QWidget *page_2;
+    QVBoxLayout *verticalLayout_media_left;
+    QFrame *frame_stream_search;
+    QHBoxLayout *horizontalLayout_stream_search;
+    QLineEdit *edit_stream_search;
+    QPushButton *btn_stream_search;
+    QLabel *lb_stream_list_title;
+    QListWidget *list_streams;
+    QFrame *frame_session_bar;
+    QHBoxLayout *horizontalLayout_session_bar;
+    QPushButton *btn_create_session;
+    QPushButton *btn_join_session;
+    QLabel *lb_session_list_title;
+    QListWidget *list_sessions;
+    QFrame *frame_collab_info;
+    QVBoxLayout *verticalLayout_collab_info;
+    QLabel *lb_collab_title;
+    QLabel *lb_collab_master;
+    QLabel *lb_collab_mode;
     QStackedWidget *stackedWidget;
     ChatPage *chat_page;
     ApplyFriendPage *friend_apply_page;
@@ -66,7 +91,7 @@ public:
     {
         if (ChatDialog->objectName().isEmpty())
             ChatDialog->setObjectName(QString::fromUtf8("ChatDialog"));
-        ChatDialog->resize(602, 507);
+        ChatDialog->resize(594, 690);
         horizontalLayout = new QHBoxLayout(ChatDialog);
         horizontalLayout->setSpacing(0);
         horizontalLayout->setObjectName(QString::fromUtf8("horizontalLayout"));
@@ -134,7 +159,7 @@ public:
 
         horizontalLayout->addWidget(side_bar);
 
-        chat_user_wid = new QStackedWidget(ChatDialog);
+        chat_user_wid = new QWidget(ChatDialog);
         chat_user_wid->setObjectName(QString::fromUtf8("chat_user_wid"));
         QSizePolicy sizePolicy1(QSizePolicy::Preferred, QSizePolicy::Expanding);
         sizePolicy1.setHorizontalStretch(0);
@@ -143,13 +168,20 @@ public:
         chat_user_wid->setSizePolicy(sizePolicy1);
         chat_user_wid->setMinimumSize(QSize(250, 0));
         chat_user_wid->setMaximumSize(QSize(250, 16777215));
-        chat_user_widPage1 = new QWidget();
-        chat_user_widPage1->setObjectName(QString::fromUtf8("chat_user_widPage1"));
-        verticalLayout = new QVBoxLayout(chat_user_widPage1);
+        verticalLayout = new QVBoxLayout(chat_user_wid);
         verticalLayout->setSpacing(0);
         verticalLayout->setObjectName(QString::fromUtf8("verticalLayout"));
         verticalLayout->setContentsMargins(0, 0, 0, 0);
-        search_wid = new QWidget(chat_user_widPage1);
+        stackedWidget_2 = new QStackedWidget(chat_user_wid);
+        stackedWidget_2->setObjectName(QString::fromUtf8("stackedWidget_2"));
+        stackedWidget_2->setMinimumSize(QSize(250, 0));
+        page = new QWidget();
+        page->setObjectName(QString::fromUtf8("page"));
+        verticalLayout_2 = new QVBoxLayout(page);
+        verticalLayout_2->setSpacing(0);
+        verticalLayout_2->setObjectName(QString::fromUtf8("verticalLayout_2"));
+        verticalLayout_2->setContentsMargins(0, 0, 0, 0);
+        search_wid = new QWidget(page);
         search_wid->setObjectName(QString::fromUtf8("search_wid"));
         search_wid->setMinimumSize(QSize(0, 60));
         search_wid->setMaximumSize(QSize(16777215, 60));
@@ -176,26 +208,120 @@ public:
         horizontalLayout_2->addWidget(add_btn);
 
 
-        verticalLayout->addWidget(search_wid);
+        verticalLayout_2->addWidget(search_wid);
 
-        search_list = new SearchList(chat_user_widPage1);
+        search_list = new SearchList(page);
         search_list->setObjectName(QString::fromUtf8("search_list"));
 
-        verticalLayout->addWidget(search_list);
+        verticalLayout_2->addWidget(search_list);
 
-        chat_user_list = new ChatUserList(chat_user_widPage1);
+        chat_user_list = new ChatUserList(page);
         chat_user_list->setObjectName(QString::fromUtf8("chat_user_list"));
         chat_user_list->setMinimumSize(QSize(250, 0));
         chat_user_list->setMaximumSize(QSize(250, 16777215));
 
-        verticalLayout->addWidget(chat_user_list);
+        verticalLayout_2->addWidget(chat_user_list);
 
-        con_user_list = new ContactUserList(chat_user_widPage1);
+        con_user_list = new ContactUserList(page);
         con_user_list->setObjectName(QString::fromUtf8("con_user_list"));
 
-        verticalLayout->addWidget(con_user_list);
+        verticalLayout_2->addWidget(con_user_list);
 
-        chat_user_wid->addWidget(chat_user_widPage1);
+        stackedWidget_2->addWidget(page);
+        page_2 = new QWidget();
+        page_2->setObjectName(QString::fromUtf8("page_2"));
+        verticalLayout_media_left = new QVBoxLayout(page_2);
+        verticalLayout_media_left->setSpacing(8);
+        verticalLayout_media_left->setObjectName(QString::fromUtf8("verticalLayout_media_left"));
+        verticalLayout_media_left->setContentsMargins(8, 8, 8, 8);
+        frame_stream_search = new QFrame(page_2);
+        frame_stream_search->setObjectName(QString::fromUtf8("frame_stream_search"));
+        frame_stream_search->setFrameShape(QFrame::StyledPanel);
+        horizontalLayout_stream_search = new QHBoxLayout(frame_stream_search);
+        horizontalLayout_stream_search->setObjectName(QString::fromUtf8("horizontalLayout_stream_search"));
+        horizontalLayout_stream_search->setContentsMargins(6, 6, 6, 6);
+        edit_stream_search = new QLineEdit(frame_stream_search);
+        edit_stream_search->setObjectName(QString::fromUtf8("edit_stream_search"));
+
+        horizontalLayout_stream_search->addWidget(edit_stream_search);
+
+        btn_stream_search = new QPushButton(frame_stream_search);
+        btn_stream_search->setObjectName(QString::fromUtf8("btn_stream_search"));
+        btn_stream_search->setMinimumSize(QSize(56, 26));
+
+        horizontalLayout_stream_search->addWidget(btn_stream_search);
+
+
+        verticalLayout_media_left->addWidget(frame_stream_search);
+
+        lb_stream_list_title = new QLabel(page_2);
+        lb_stream_list_title->setObjectName(QString::fromUtf8("lb_stream_list_title"));
+
+        verticalLayout_media_left->addWidget(lb_stream_list_title);
+
+        list_streams = new QListWidget(page_2);
+        list_streams->setObjectName(QString::fromUtf8("list_streams"));
+
+        verticalLayout_media_left->addWidget(list_streams);
+
+        frame_session_bar = new QFrame(page_2);
+        frame_session_bar->setObjectName(QString::fromUtf8("frame_session_bar"));
+        frame_session_bar->setFrameShape(QFrame::StyledPanel);
+        horizontalLayout_session_bar = new QHBoxLayout(frame_session_bar);
+        horizontalLayout_session_bar->setObjectName(QString::fromUtf8("horizontalLayout_session_bar"));
+        horizontalLayout_session_bar->setContentsMargins(6, 6, 6, 6);
+        btn_create_session = new QPushButton(frame_session_bar);
+        btn_create_session->setObjectName(QString::fromUtf8("btn_create_session"));
+
+        horizontalLayout_session_bar->addWidget(btn_create_session);
+
+        btn_join_session = new QPushButton(frame_session_bar);
+        btn_join_session->setObjectName(QString::fromUtf8("btn_join_session"));
+
+        horizontalLayout_session_bar->addWidget(btn_join_session);
+
+
+        verticalLayout_media_left->addWidget(frame_session_bar);
+
+        lb_session_list_title = new QLabel(page_2);
+        lb_session_list_title->setObjectName(QString::fromUtf8("lb_session_list_title"));
+
+        verticalLayout_media_left->addWidget(lb_session_list_title);
+
+        list_sessions = new QListWidget(page_2);
+        list_sessions->setObjectName(QString::fromUtf8("list_sessions"));
+        list_sessions->setMinimumSize(QSize(0, 120));
+
+        verticalLayout_media_left->addWidget(list_sessions);
+
+        frame_collab_info = new QFrame(page_2);
+        frame_collab_info->setObjectName(QString::fromUtf8("frame_collab_info"));
+        frame_collab_info->setFrameShape(QFrame::StyledPanel);
+        verticalLayout_collab_info = new QVBoxLayout(frame_collab_info);
+        verticalLayout_collab_info->setObjectName(QString::fromUtf8("verticalLayout_collab_info"));
+        verticalLayout_collab_info->setContentsMargins(8, 6, 8, 6);
+        lb_collab_title = new QLabel(frame_collab_info);
+        lb_collab_title->setObjectName(QString::fromUtf8("lb_collab_title"));
+
+        verticalLayout_collab_info->addWidget(lb_collab_title);
+
+        lb_collab_master = new QLabel(frame_collab_info);
+        lb_collab_master->setObjectName(QString::fromUtf8("lb_collab_master"));
+
+        verticalLayout_collab_info->addWidget(lb_collab_master);
+
+        lb_collab_mode = new QLabel(frame_collab_info);
+        lb_collab_mode->setObjectName(QString::fromUtf8("lb_collab_mode"));
+
+        verticalLayout_collab_info->addWidget(lb_collab_mode);
+
+
+        verticalLayout_media_left->addWidget(frame_collab_info);
+
+        stackedWidget_2->addWidget(page_2);
+
+        verticalLayout->addWidget(stackedWidget_2);
+
 
         horizontalLayout->addWidget(chat_user_wid);
 
@@ -220,6 +346,7 @@ public:
 
         retranslateUi(ChatDialog);
 
+        stackedWidget_2->setCurrentIndex(1);
         stackedWidget->setCurrentIndex(3);
 
 
@@ -231,6 +358,15 @@ public:
         ChatDialog->setWindowTitle(QApplication::translate("ChatDialog", "Dialog", nullptr));
         side_head_lb->setText(QString());
         add_btn->setText(QString());
+        edit_stream_search->setPlaceholderText(QApplication::translate("ChatDialog", "???ID / ??", nullptr));
+        btn_stream_search->setText(QApplication::translate("ChatDialog", "??", nullptr));
+        lb_stream_list_title->setText(QApplication::translate("ChatDialog", "??????", nullptr));
+        btn_create_session->setText(QApplication::translate("ChatDialog", "????", nullptr));
+        btn_join_session->setText(QApplication::translate("ChatDialog", "????", nullptr));
+        lb_session_list_title->setText(QApplication::translate("ChatDialog", "????", nullptr));
+        lb_collab_title->setText(QApplication::translate("ChatDialog", "????", nullptr));
+        lb_collab_master->setText(QApplication::translate("ChatDialog", "??: -", nullptr));
+        lb_collab_mode->setText(QApplication::translate("ChatDialog", "??: ???", nullptr));
     } // retranslateUi
 
 };

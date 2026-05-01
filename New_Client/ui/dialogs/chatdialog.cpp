@@ -138,6 +138,7 @@ ChatDialog::ChatDialog(QWidget *parent) :
 
     //设置中心部件为chatpage
     ui->stackedWidget->setCurrentWidget(ui->chat_page);
+    ui->stackedWidget_2->setCurrentWidget(ui->page);
 
 
     //连接searchlist跳转聊天信号
@@ -533,6 +534,18 @@ void ChatDialog::SetSelectChatPage(int uid)
 
 void ChatDialog::ShowSearch(bool bsearch)
 {
+    // Player mode uses dedicated left page; skip chat/contact search toggling.
+    if (_state == ChatUIMode::ShowPlayer) {
+        ui->chat_user_list->hide();
+        ui->con_user_list->hide();
+        ui->search_list->hide();
+        _mode = ChatUIMode::ShowPlayer;
+        ui->search_list->CloseFindDlg();
+        ui->search_edit->clear();
+        ui->search_edit->clearFocus();
+        return;
+    }
+
     if(bsearch){
         ui->chat_user_list->hide();
         ui->con_user_list->hide();
@@ -551,14 +564,6 @@ void ChatDialog::ShowSearch(bool bsearch)
         ui->search_list->hide();
         ui->con_user_list->show();
         _mode = ChatUIMode::ContactMode;
-        ui->search_list->CloseFindDlg();
-		ui->search_edit->clear();
-		ui->search_edit->clearFocus();
-    }else if(_state == ChatUIMode::ShowPlayer){
-        ui->chat_user_list->hide();
-        ui->con_user_list->hide();
-        ui->search_list->hide();
-        _mode = ChatUIMode::ShowPlayer;
         ui->search_list->CloseFindDlg();
         ui->search_edit->clear();
         ui->search_edit->clearFocus();
@@ -587,6 +592,7 @@ void ChatDialog::slot_side_chat()
 {
     qDebug()<< "receive side chat clicked";
     ClearLabelState(ui->side_chat_lb);
+    ui->stackedWidget_2->setCurrentWidget(ui->page);
     ui->stackedWidget->setCurrentWidget(ui->chat_page);
     _state = ChatUIMode::ChatMode;
     ShowSearch(false);
@@ -595,6 +601,7 @@ void ChatDialog::slot_side_chat()
 void ChatDialog::slot_side_contact(){
     qDebug()<< "receive side contact clicked";
     ClearLabelState(ui->side_contact_lb);
+    ui->stackedWidget_2->setCurrentWidget(ui->page);
     //设置
     if(_last_widget == nullptr){
         ui->stackedWidget->setCurrentWidget(ui->friend_apply_page);
@@ -611,6 +618,7 @@ void ChatDialog::slot_side_player()
 {
     qDebug() << "receive side player clicked";
     ClearLabelState(ui->side_player_lb);
+    ui->stackedWidget_2->setCurrentWidget(ui->page_2);
     ui->stackedWidget->setCurrentWidget(ui->media_player_page);
     _state = ChatUIMode::ShowPlayer;
     ShowSearch(false);
@@ -619,6 +627,10 @@ void ChatDialog::slot_side_player()
 void ChatDialog::slot_text_changed(const QString &str)
 {
     //qDebug()<< "receive slot text changed str is " << str;
+    if (_state == ChatUIMode::ShowPlayer) {
+        return;
+    }
+
     if (!str.isEmpty()) {
         ShowSearch(true);
     }

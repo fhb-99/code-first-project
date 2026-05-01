@@ -1,3 +1,0 @@
-/home/chen/linux/project/ChatServer/build/CMakeFiles/rebuild_cache.dir
-/home/chen/linux/project/ChatServer/build/CMakeFiles/edit_cache.dir
-/home/chen/linux/project/ChatServer/build/CMakeFiles/ChatServer.dir

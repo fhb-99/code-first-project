@@ -81,6 +81,7 @@ CMakeFiles/StatusServer.dir/src/RedisMgr.cpp.o
  /usr/include/jsoncpp/json/writer.h
 CMakeFiles/StatusServer.dir/src/StatusServiceImpl.cpp.o
  ../include/ConfigMgr.h
+ ../include/RedisMgr.h
  ../include/Singleton.h
  ../include/StatusServiceImpl.h
  ../include/global.h

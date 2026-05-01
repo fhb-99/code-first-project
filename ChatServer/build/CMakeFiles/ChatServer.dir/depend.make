@@ -5,6 +5,7 @@ CMakeFiles/ChatServer.dir/ChatServer.cpp.o: ../include/AsioIOServicePool.h
 CMakeFiles/ChatServer.dir/ChatServer.cpp.o: ../include/CServer.h
 CMakeFiles/ChatServer.dir/ChatServer.cpp.o: ../include/CSession.h
 CMakeFiles/ChatServer.dir/ChatServer.cpp.o: ../include/ChatGrpcClient.h
+CMakeFiles/ChatServer.dir/ChatServer.cpp.o: ../include/ChatServiceImpl.h
 CMakeFiles/ChatServer.dir/ChatServer.cpp.o: ../include/ConfigMgr.h
 CMakeFiles/ChatServer.dir/ChatServer.cpp.o: ../include/LogicSystem.h
 CMakeFiles/ChatServer.dir/ChatServer.cpp.o: ../include/MsgNode.h
@@ -110,6 +111,34 @@ CMakeFiles/ChatServer.dir/src/ChatGrpcClient.cpp.o: /usr/include/jsoncpp/json/re
 CMakeFiles/ChatServer.dir/src/ChatGrpcClient.cpp.o: /usr/include/jsoncpp/json/value.h
 CMakeFiles/ChatServer.dir/src/ChatGrpcClient.cpp.o: /usr/include/jsoncpp/json/version.h
 CMakeFiles/ChatServer.dir/src/ChatGrpcClient.cpp.o: /usr/include/jsoncpp/json/writer.h
+
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: ../include/CServer.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: ../include/CSession.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: ../include/ChatGrpcClient.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: ../include/ChatServiceImpl.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: ../include/ConfigMgr.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: ../include/LogicSystem.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: ../include/MsgNode.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: ../include/MysqlMgr.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: ../include/RedisMgr.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: ../include/Singleton.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: ../include/StatusGrpcClient.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: ../include/UserMgr.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: ../include/data.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: ../include/global.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: ../include/message.grpc.pb.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: ../include/message.pb.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: ../src/ChatServiceImpl.cpp
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: /usr/include/jsoncpp/json/allocator.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: /usr/include/jsoncpp/json/autolink.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: /usr/include/jsoncpp/json/config.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: /usr/include/jsoncpp/json/features.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: /usr/include/jsoncpp/json/forwards.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: /usr/include/jsoncpp/json/json.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: /usr/include/jsoncpp/json/reader.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: /usr/include/jsoncpp/json/value.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: /usr/include/jsoncpp/json/version.h
+CMakeFiles/ChatServer.dir/src/ChatServiceImpl.cpp.o: /usr/include/jsoncpp/json/writer.h
 
 CMakeFiles/ChatServer.dir/src/ConfigMgr.cpp.o: ../include/ChatGrpcClient.h
 CMakeFiles/ChatServer.dir/src/ConfigMgr.cpp.o: ../include/ConfigMgr.h
@@ -254,9 +283,28 @@ CMakeFiles/ChatServer.dir/src/StatusGrpcClient.cpp.o: /usr/include/jsoncpp/json/
 CMakeFiles/ChatServer.dir/src/StatusGrpcClient.cpp.o: /usr/include/jsoncpp/json/version.h
 CMakeFiles/ChatServer.dir/src/StatusGrpcClient.cpp.o: /usr/include/jsoncpp/json/writer.h
 
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: ../include/ChatGrpcClient.h
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: ../include/ConfigMgr.h
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: ../include/MsgNode.h
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: ../include/MysqlMgr.h
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: ../include/RedisMgr.h
 CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: ../include/Singleton.h
 CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: ../include/UserMgr.h
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: ../include/data.h
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: ../include/global.h
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: ../include/message.grpc.pb.h
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: ../include/message.pb.h
 CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: ../src/UserMgr.cpp
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: /usr/include/jsoncpp/json/allocator.h
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: /usr/include/jsoncpp/json/autolink.h
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: /usr/include/jsoncpp/json/config.h
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: /usr/include/jsoncpp/json/features.h
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: /usr/include/jsoncpp/json/forwards.h
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: /usr/include/jsoncpp/json/json.h
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: /usr/include/jsoncpp/json/reader.h
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: /usr/include/jsoncpp/json/value.h
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: /usr/include/jsoncpp/json/version.h
+CMakeFiles/ChatServer.dir/src/UserMgr.cpp.o: /usr/include/jsoncpp/json/writer.h
 
 CMakeFiles/ChatServer.dir/src/message.grpc.pb.cc.o: ../include/message.grpc.pb.h
 CMakeFiles/ChatServer.dir/src/message.grpc.pb.cc.o: ../include/message.pb.h

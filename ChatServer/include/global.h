@@ -25,8 +25,8 @@
 #include <memory>
 #include "Singleton.h"
 #include "ConfigMgr.h"
-#include "MsgNode.h"
 #include "data.h"
+#include "MsgNode.h"
 #include "UserMgr.h"
 #include "MysqlMgr.h"
 #include "RedisMgr.h"

@@ -6,6 +6,7 @@
 #include "registerdialog.h"
 #include "resetdialog.h"
 #include "chatdialog.h"
+
 /******************************************************************************
  *
  * @file       mainwindow.h
@@ -15,6 +16,10 @@
  * @date       2024/02/27
  * @history
  *****************************************************************************/
+
+/** 必须在构造 MainWindow 之前调用。true=跳过登录，启动后直接进入聊天界面（仅 UI 开发）。 */
+void MainWindow_SetDevSkipLogin(bool skip);
+
 namespace Ui {
 class MainWindow;
 }
@@ -34,11 +39,13 @@ public slots:
     void SlotSwitchChat();
 private:
     void FitToCentralWidget();
+    void enterChatUi();
     Ui::MainWindow *ui;
     LoginDialog* _login_dlg;
     RegisterDialog* _reg_dlg;
     ResetDialog* _reset_dlg;
     ChatDialog* _chat_dlg;
+    bool _devSkipLogin;
 };
 
 #endif // MAINWINDOW_H

@@ -166,14 +166,13 @@ bool MysqlMgr::CheckPwd(const std::string &email, const std::string &pwd, UserIn
 
 		// 执行查询
 		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
-		std::string origin_pwd = "";
-		// 遍历结果集
-		while (res->next()) {
-			origin_pwd = res->getString("pwd");
-			// 输出查询到的密码
-			std::cout << "Password: " << origin_pwd << std::endl;
-			break;
+		if (!res->next()) {
+			return false;
 		}
+
+		const std::string origin_pwd = res->getString("pwd");
+		// 输出查询到的密码
+		std::cout << "Password: " << origin_pwd << std::endl;
 
 		if (pwd != origin_pwd) {
 			return false;

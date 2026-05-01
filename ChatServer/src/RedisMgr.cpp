@@ -263,6 +263,25 @@ bool RedisMgr::Del(const std::string &key)
     }
 }
 
+
+bool RedisMgr::HDel(const std::string& key, const std::string& field)
+{
+    if(!_con_pool) return false;
+    try
+    {
+        RedisConnGuard redis(_con_pool.get(), _con_pool->getConnection());
+        if(!redis) return false;
+        long long result = redis->hdel(key, field);
+        return result > 0;
+    }
+    catch (const std::exception& e) 
+    {
+        std::cerr << "Redis HDel error: " << e.what() << std::endl;
+        return false;
+    }
+}
+
+
 bool RedisMgr::ExistsKey(const std::string &key)
 {
     if (!_con_pool) return false;

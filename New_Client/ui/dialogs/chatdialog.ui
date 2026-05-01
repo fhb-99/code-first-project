@@ -125,6 +125,22 @@
           </widget>
          </item>
          <item>
+          <widget class="StateWidget" name="side_player_lb" native="true">
+           <property name="minimumSize">
+            <size>
+             <width>30</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>30</width>
+             <height>30</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item>
           <widget class="StateWidget" name="side_contact_lb" native="true">
            <property name="minimumSize">
             <size>
@@ -316,11 +332,12 @@
       </size>
      </property>
      <property name="currentIndex">
-      <number>1</number>
+      <number>3</number>
      </property>
      <widget class="ChatPage" name="chat_page"/>
      <widget class="ApplyFriendPage" name="friend_apply_page"/>
      <widget class="FriendInfoPage" name="friend_info_page"/>
+     <widget class="mediaplayerpage" name="media_player_page"/>
     </widget>
    </item>
   </layout>
@@ -373,6 +390,12 @@
    <class>FriendInfoPage</class>
    <extends>QWidget</extends>
    <header location="global">friendinfopage.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>mediaplayerpage</class>
+   <extends>QWidget</extends>
+   <header location="global">mediaplayerpage.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

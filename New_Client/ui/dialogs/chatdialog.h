@@ -51,6 +51,7 @@ public slots:
     void slot_loading_chat_user();
     void slot_side_chat();
     void slot_side_contact();
+    void slot_side_player();    //切换播放器界面
     void slot_text_changed(const QString & str);
     void slot_focus_out();
     void slot_loading_contact_user();

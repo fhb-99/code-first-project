@@ -3,10 +3,14 @@
 #include <QDataStream>
 #include <QDebug>
 #include <QIODevice>
+#include <QNetworkProxy>
 #include "usermgr.h"
 
 TcpMgr::TcpMgr():_host(""),_port(0),_b_recv_pending(false),_message_id(0),_message_len(0)
 {
+    // Avoid system/application proxies interfering with raw TCP connections.
+    _socket.setProxy(QNetworkProxy::NoProxy);
+
     QObject::connect(&_socket, &QTcpSocket::connected, [&]() {
            qDebug() << "Connected to server!";
            // 连接建立后发送消息
@@ -102,7 +106,8 @@ TcpMgr::TcpMgr():_host(""),_port(0),_b_recv_pending(false),_message_id(0),_messa
         initHandlers();
 }
 
-TcpMgr::~TcpMgr(){
+TcpMgr::~TcpMgr()
+{
 
 }
 void TcpMgr::initHandlers()
@@ -450,4 +455,3 @@ void TcpMgr::slot_send_data(ReqId reqId, QByteArray dataBytes)
     _socket.write(block);
     qDebug() << "tcp mgr send byte data is " << block ;
 }
-

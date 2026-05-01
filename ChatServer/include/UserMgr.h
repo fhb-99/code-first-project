@@ -1,5 +1,6 @@
 #pragma once
 
+#include "global.h"
 #include "Singleton.h"
 #include <unordered_map>
 #include <memory>

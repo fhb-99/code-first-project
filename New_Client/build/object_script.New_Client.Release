@@ -26,6 +26,7 @@ release/applyfriendpage.o
 release/authenfriend.o
 release/chatpage.o
 release/friendinfopage.o
+release/mediaplayerpage.o
 release/BubbleFrame.o
 release/ChatView.o
 release/MessageTextEdit.o
@@ -70,6 +71,7 @@ release/moc_applyfriendpage.o
 release/moc_authenfriend.o
 release/moc_chatpage.o
 release/moc_friendinfopage.o
+release/moc_mediaplayerpage.o
 release/moc_BubbleFrame.o
 release/moc_ChatView.o
 release/moc_MessageTextEdit.o

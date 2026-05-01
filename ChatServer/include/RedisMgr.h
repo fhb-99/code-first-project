@@ -20,7 +20,22 @@ public:
             try 
             {
                 // 构建连接字符串
-                std::string conn_str = host_ + ":" + std::to_string(port_);
+                // redis-plus-plus 要求连接串必须要带协议scheme
+                std::string conn_str;
+                if (host_.find("://") == std::string::npos) {
+                    conn_str = "tcp://" + host_ + ":" + std::to_string(port_);
+                } else {
+                    conn_str = host_;
+                    const bool is_unix = (conn_str.rfind("unix://", 0) == 0);
+                    if (!is_unix) {
+                        const auto scheme_pos = conn_str.find("://");
+                        const auto host_pos = (scheme_pos == std::string::npos) ? 0 : (scheme_pos + 3);
+                        if (conn_str.find(':', host_pos) == std::string::npos) {
+                            conn_str += ":" + std::to_string(port_);
+                        }
+                    }
+                }
+                
                 if (!pwd_.empty()) {
                     //conn_str += "?password=" + std::string(pwd);
                 }
@@ -143,6 +158,7 @@ public:
     
     // 键操作
     bool Del(const std::string& key);
+    bool HDel(const std::string& key, const std::string& field);
     bool ExistsKey(const std::string& key);
     
     // 关闭连接

@@ -48,6 +48,7 @@ SOURCES += \
     ui/pages/authenfriend.cpp \
     ui/pages/chatpage.cpp \
     ui/pages/friendinfopage.cpp \
+    ui/pages/mediaplayerpage.cpp \
     ui/widgets/BubbleFrame.cpp \
     ui/widgets/ChatView.cpp \
     ui/widgets/MessageTextEdit.cpp \
@@ -96,6 +97,7 @@ HEADERS += \
     ui/pages/authenfriend.h \
     ui/pages/chatpage.h \
     ui/pages/friendinfopage.h \
+    ui/pages/mediaplayerpage.h \
     ui/widgets/BubbleFrame.h \
     ui/widgets/ChatView.h \
     ui/widgets/MessageTextEdit.h \
@@ -134,6 +136,7 @@ FORMS += \
     ui/pages/authenfriend.ui \
     ui/pages/chatpage.ui \
     ui/pages/friendinfopage.ui \
+    ui/pages/mediaplayerpage.ui \
     ui/widgets/chatuserwid.ui \
     ui/widgets/friendlabel.ui
 

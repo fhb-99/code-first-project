@@ -330,6 +330,30 @@ LoadingDlg{
     border-image: url(:/res/contact_list_press.png);
 }
 
+#side_player_lb[state='normal']{
+    border-image: url(:/res/player_normal.png);
+}
+
+#side_player_lb[state='hover']{
+    border-image: url(:/res/player_hover.png);
+}
+
+#side_player_lb[state='pressed']{
+    border-image: url(:/res/player_press.png);
+}
+
+#side_player_lb[state='selected_normal']{
+    border-image: url(:/res/player_press.png);
+}
+
+#side_player_lb[state='selected_hover']{
+    border-image: url(:/res/player_press.png);
+}
+
+#side_player_lb[state='selected_pressed']{
+    border-image: url(:/res/player_press.png);
+}
+
 
 #search_edit {
     border: 2px solid #f1f1f1;

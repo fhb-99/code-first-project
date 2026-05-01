@@ -22,6 +22,7 @@
 #include <chatpage.h>
 #include <contactuserlist.h>
 #include <friendinfopage.h>
+#include <mediaplayerpage.h>
 #include <statewidget.h>
 #include "chatuserlist.h"
 #include "clickedbtn.h"
@@ -40,10 +41,12 @@ public:
     QVBoxLayout *verticalLayout_5;
     QLabel *side_head_lb;
     StateWidget *side_chat_lb;
+    StateWidget *side_player_lb;
     StateWidget *side_contact_lb;
     QWidget *widget;
     QSpacerItem *verticalSpacer;
-    QWidget *chat_user_wid;
+    QStackedWidget *chat_user_wid;
+    QWidget *chat_user_widPage1;
     QVBoxLayout *verticalLayout;
     QWidget *search_wid;
     QHBoxLayout *horizontalLayout_2;
@@ -57,6 +60,7 @@ public:
     ChatPage *chat_page;
     ApplyFriendPage *friend_apply_page;
     FriendInfoPage *friend_info_page;
+    mediaplayerpage *media_player_page;
 
     void setupUi(QDialog *ChatDialog)
     {
@@ -101,6 +105,13 @@ public:
 
         verticalLayout_5->addWidget(side_chat_lb);
 
+        side_player_lb = new StateWidget(widget_2);
+        side_player_lb->setObjectName(QString::fromUtf8("side_player_lb"));
+        side_player_lb->setMinimumSize(QSize(30, 30));
+        side_player_lb->setMaximumSize(QSize(30, 30));
+
+        verticalLayout_5->addWidget(side_player_lb);
+
         side_contact_lb = new StateWidget(widget_2);
         side_contact_lb->setObjectName(QString::fromUtf8("side_contact_lb"));
         side_contact_lb->setMinimumSize(QSize(30, 30));
@@ -123,7 +134,7 @@ public:
 
         horizontalLayout->addWidget(side_bar);
 
-        chat_user_wid = new QWidget(ChatDialog);
+        chat_user_wid = new QStackedWidget(ChatDialog);
         chat_user_wid->setObjectName(QString::fromUtf8("chat_user_wid"));
         QSizePolicy sizePolicy1(QSizePolicy::Preferred, QSizePolicy::Expanding);
         sizePolicy1.setHorizontalStretch(0);
@@ -132,11 +143,13 @@ public:
         chat_user_wid->setSizePolicy(sizePolicy1);
         chat_user_wid->setMinimumSize(QSize(250, 0));
         chat_user_wid->setMaximumSize(QSize(250, 16777215));
-        verticalLayout = new QVBoxLayout(chat_user_wid);
+        chat_user_widPage1 = new QWidget();
+        chat_user_widPage1->setObjectName(QString::fromUtf8("chat_user_widPage1"));
+        verticalLayout = new QVBoxLayout(chat_user_widPage1);
         verticalLayout->setSpacing(0);
         verticalLayout->setObjectName(QString::fromUtf8("verticalLayout"));
         verticalLayout->setContentsMargins(0, 0, 0, 0);
-        search_wid = new QWidget(chat_user_wid);
+        search_wid = new QWidget(chat_user_widPage1);
         search_wid->setObjectName(QString::fromUtf8("search_wid"));
         search_wid->setMinimumSize(QSize(0, 60));
         search_wid->setMaximumSize(QSize(16777215, 60));
@@ -165,23 +178,24 @@ public:
 
         verticalLayout->addWidget(search_wid);
 
-        search_list = new SearchList(chat_user_wid);
+        search_list = new SearchList(chat_user_widPage1);
         search_list->setObjectName(QString::fromUtf8("search_list"));
 
         verticalLayout->addWidget(search_list);
 
-        chat_user_list = new ChatUserList(chat_user_wid);
+        chat_user_list = new ChatUserList(chat_user_widPage1);
         chat_user_list->setObjectName(QString::fromUtf8("chat_user_list"));
         chat_user_list->setMinimumSize(QSize(250, 0));
         chat_user_list->setMaximumSize(QSize(250, 16777215));
 
         verticalLayout->addWidget(chat_user_list);
 
-        con_user_list = new ContactUserList(chat_user_wid);
+        con_user_list = new ContactUserList(chat_user_widPage1);
         con_user_list->setObjectName(QString::fromUtf8("con_user_list"));
 
         verticalLayout->addWidget(con_user_list);
 
+        chat_user_wid->addWidget(chat_user_widPage1);
 
         horizontalLayout->addWidget(chat_user_wid);
 
@@ -197,13 +211,16 @@ public:
         friend_info_page = new FriendInfoPage();
         friend_info_page->setObjectName(QString::fromUtf8("friend_info_page"));
         stackedWidget->addWidget(friend_info_page);
+        media_player_page = new mediaplayerpage();
+        media_player_page->setObjectName(QString::fromUtf8("media_player_page"));
+        stackedWidget->addWidget(media_player_page);
 
         horizontalLayout->addWidget(stackedWidget);
 
 
         retranslateUi(ChatDialog);
 
-        stackedWidget->setCurrentIndex(1);
+        stackedWidget->setCurrentIndex(3);
 
 
         QMetaObject::connectSlotsByName(ChatDialog);

@@ -82,11 +82,16 @@ ChatDialog::ChatDialog(QWidget *parent) :
 
     ui->side_contact_lb->SetState("normal","hover","pressed","selected_normal","selected_hover","selected_pressed");
 
+    ui->side_player_lb->SetState("normal","hover","pressed","selected_normal","selected_hover","selected_pressed");
+
     AddLBGroup(ui->side_chat_lb);
     AddLBGroup(ui->side_contact_lb);
+    AddLBGroup(ui->side_player_lb);
 
     connect(ui->side_chat_lb, &StateWidget::clicked, this, &ChatDialog::slot_side_chat);
     connect(ui->side_contact_lb, &StateWidget::clicked, this, &ChatDialog::slot_side_contact);
+    //切换播放器页面
+    connect(ui->side_player_lb, &StateWidget::clicked, this, &ChatDialog::slot_side_player);
 
     //链接搜索框输入变化
     connect(ui->search_edit, &QLineEdit::textChanged, this, &ChatDialog::slot_text_changed);
@@ -296,9 +301,11 @@ void ChatDialog::slot_append_send_chat_msg(std::shared_ptr<TextChatData> msgdata
     }
 
     auto itemType = customItem->GetItemType();
-    if (itemType == CHAT_USER_ITEM) {
+    if (itemType == CHAT_USER_ITEM)
+    {
         auto con_item = qobject_cast<ChatUserWid*>(customItem);
-        if (!con_item) {
+        if (!con_item)
+        {
             return;
         }
 
@@ -365,7 +372,8 @@ void ChatDialog::addChatUserList()
 
 }
 
-void ChatDialog::loadMoreChatUser() {
+void ChatDialog::loadMoreChatUser()
+{
     auto friend_list = UserMgr::GetInstance()->GetChatListPerPage();
     if (friend_list.empty() == false) {
         for(auto & friend_ele : friend_list){
@@ -546,6 +554,14 @@ void ChatDialog::ShowSearch(bool bsearch)
         ui->search_list->CloseFindDlg();
 		ui->search_edit->clear();
 		ui->search_edit->clearFocus();
+    }else if(_state == ChatUIMode::ShowPlayer){
+        ui->chat_user_list->hide();
+        ui->con_user_list->hide();
+        ui->search_list->hide();
+        _mode = ChatUIMode::ShowPlayer;
+        ui->search_list->CloseFindDlg();
+        ui->search_edit->clear();
+        ui->search_edit->clearFocus();
     }
 }
 
@@ -588,6 +604,15 @@ void ChatDialog::slot_side_contact(){
     }
 
     _state = ChatUIMode::ContactMode;
+    ShowSearch(false);
+}
+
+void ChatDialog::slot_side_player()
+{
+    qDebug() << "receive side player clicked";
+    ClearLabelState(ui->side_player_lb);
+    ui->stackedWidget->setCurrentWidget(ui->media_player_page);
+    _state = ChatUIMode::ShowPlayer;
     ShowSearch(false);
 }
 

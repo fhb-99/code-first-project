@@ -26,6 +26,7 @@ debug/applyfriendpage.o
 debug/authenfriend.o
 debug/chatpage.o
 debug/friendinfopage.o
+debug/mediaplayerpage.o
 debug/BubbleFrame.o
 debug/ChatView.o
 debug/MessageTextEdit.o
@@ -70,6 +71,7 @@ debug/moc_applyfriendpage.o
 debug/moc_authenfriend.o
 debug/moc_chatpage.o
 debug/moc_friendinfopage.o
+debug/moc_mediaplayerpage.o
 debug/moc_BubbleFrame.o
 debug/moc_ChatView.o
 debug/moc_MessageTextEdit.o

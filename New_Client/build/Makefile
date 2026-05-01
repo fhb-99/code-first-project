@@ -216,6 +216,7 @@ Makefile: ../New_Client.pro D:/Qt5.12.10/5.12.10/mingw73_64/mkspecs/win32-g++/qm
 		D:/Qt5.12.10/5.12.10/mingw73_64/mkspecs/features/qt_config.prf \
 		D:/Qt5.12.10/5.12.10/mingw73_64/mkspecs/win32-g++/qmake.conf \
 		D:/Qt5.12.10/5.12.10/mingw73_64/mkspecs/features/spec_post.prf \
+		.qmake.stash \
 		D:/Qt5.12.10/5.12.10/mingw73_64/mkspecs/features/exclusive_builds.prf \
 		D:/Qt5.12.10/5.12.10/mingw73_64/mkspecs/features/toolchain.prf \
 		D:/Qt5.12.10/5.12.10/mingw73_64/mkspecs/features/default_pre.prf \
@@ -398,6 +399,7 @@ D:/Qt5.12.10/5.12.10/mingw73_64/mkspecs/features/qt_functions.prf:
 D:/Qt5.12.10/5.12.10/mingw73_64/mkspecs/features/qt_config.prf:
 D:/Qt5.12.10/5.12.10/mingw73_64/mkspecs/win32-g++/qmake.conf:
 D:/Qt5.12.10/5.12.10/mingw73_64/mkspecs/features/spec_post.prf:
+.qmake.stash:
 D:/Qt5.12.10/5.12.10/mingw73_64/mkspecs/features/exclusive_builds.prf:
 D:/Qt5.12.10/5.12.10/mingw73_64/mkspecs/features/toolchain.prf:
 D:/Qt5.12.10/5.12.10/mingw73_64/mkspecs/features/default_pre.prf:

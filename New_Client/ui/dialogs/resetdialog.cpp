@@ -10,6 +10,20 @@ ResetDialog::ResetDialog(QWidget *parent) :
     ui(new Ui::ResetDialog)
 {
     ui->setupUi(this);
+    setWindowTitle(tr("重置密码"));
+    setStyleSheet(
+        "QDialog#ResetDialog { background:#eef2f7; }"
+        "QWidget#widget, QWidget#widget_2, QWidget#widget_3, QWidget#widget_4, QWidget#widget_5 {"
+        " background:#ffffff; border:1px solid #d8dde6; border-radius:8px; }"
+        "QLineEdit { background:#ffffff; border:1px solid #cfd6e2; border-radius:6px; padding:4px 8px; }"
+        "QLineEdit:focus { border:1px solid #5b78b3; }"
+        "QPushButton, TimerBtn { background:#f7f9fc; border:1px solid #cfd6e2; border-radius:6px; padding:6px 10px; }"
+        "QPushButton:hover, TimerBtn:hover { background:#ebf0f8; }"
+        "QPushButton:pressed, TimerBtn:pressed { background:#dee7f5; }"
+        "QLabel { color:#2f3a4a; }"
+        "QLabel#err_tip[state=\"err\"] { color:#d1495b; font-weight:600; }"
+        "QLabel#err_tip[state=\"normal\"] { color:#2f3a4a; }"
+    );
 
     connect(ui->user_edit,&QLineEdit::editingFinished,this,[this](){
         checkUserValid();

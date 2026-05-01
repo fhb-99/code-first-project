@@ -57,7 +57,7 @@ public:
     {
         if (ResetDialog->objectName().isEmpty())
             ResetDialog->setObjectName(QString::fromUtf8("ResetDialog"));
-        ResetDialog->resize(354, 538);
+        ResetDialog->resize(420, 620);
         verticalLayout = new QVBoxLayout(ResetDialog);
         verticalLayout->setObjectName(QString::fromUtf8("verticalLayout"));
         verticalSpacer = new QSpacerItem(20, 40, QSizePolicy::Minimum, QSizePolicy::Expanding);
@@ -66,8 +66,8 @@ public:
 
         err_tip = new QLabel(ResetDialog);
         err_tip->setObjectName(QString::fromUtf8("err_tip"));
-        err_tip->setMinimumSize(QSize(0, 25));
-        err_tip->setMaximumSize(QSize(16777215, 25));
+        err_tip->setMinimumSize(QSize(0, 32));
+        err_tip->setMaximumSize(QSize(16777215, 32));
         err_tip->setAlignment(Qt::AlignCenter);
 
         verticalLayout->addWidget(err_tip);
@@ -78,15 +78,15 @@ public:
         horizontalLayout->setObjectName(QString::fromUtf8("horizontalLayout"));
         user_lb = new QLabel(widget);
         user_lb->setObjectName(QString::fromUtf8("user_lb"));
-        user_lb->setMinimumSize(QSize(0, 25));
-        user_lb->setMaximumSize(QSize(16777215, 25));
+        user_lb->setMinimumSize(QSize(72, 32));
+        user_lb->setMaximumSize(QSize(72, 32));
 
         horizontalLayout->addWidget(user_lb);
 
         user_edit = new QLineEdit(widget);
         user_edit->setObjectName(QString::fromUtf8("user_edit"));
-        user_edit->setMinimumSize(QSize(0, 25));
-        user_edit->setMaximumSize(QSize(16777215, 25));
+        user_edit->setMinimumSize(QSize(0, 32));
+        user_edit->setMaximumSize(QSize(16777215, 32));
 
         horizontalLayout->addWidget(user_edit);
 
@@ -99,15 +99,15 @@ public:
         horizontalLayout_2->setObjectName(QString::fromUtf8("horizontalLayout_2"));
         email_lb = new QLabel(widget_2);
         email_lb->setObjectName(QString::fromUtf8("email_lb"));
-        email_lb->setMinimumSize(QSize(48, 25));
-        email_lb->setMaximumSize(QSize(48, 25));
+        email_lb->setMinimumSize(QSize(72, 32));
+        email_lb->setMaximumSize(QSize(72, 32));
 
         horizontalLayout_2->addWidget(email_lb);
 
         email_edit = new QLineEdit(widget_2);
         email_edit->setObjectName(QString::fromUtf8("email_edit"));
-        email_edit->setMinimumSize(QSize(0, 25));
-        email_edit->setMaximumSize(QSize(16777215, 25));
+        email_edit->setMinimumSize(QSize(0, 32));
+        email_edit->setMaximumSize(QSize(16777215, 32));
 
         horizontalLayout_2->addWidget(email_edit);
 
@@ -120,22 +120,22 @@ public:
         horizontalLayout_3->setObjectName(QString::fromUtf8("horizontalLayout_3"));
         varify_lb = new QLabel(widget_3);
         varify_lb->setObjectName(QString::fromUtf8("varify_lb"));
-        varify_lb->setMinimumSize(QSize(0, 25));
-        varify_lb->setMaximumSize(QSize(16777215, 25));
+        varify_lb->setMinimumSize(QSize(0, 32));
+        varify_lb->setMaximumSize(QSize(16777215, 32));
 
         horizontalLayout_3->addWidget(varify_lb);
 
         varify_edit = new QLineEdit(widget_3);
         varify_edit->setObjectName(QString::fromUtf8("varify_edit"));
-        varify_edit->setMinimumSize(QSize(0, 25));
-        varify_edit->setMaximumSize(QSize(16777215, 25));
+        varify_edit->setMinimumSize(QSize(0, 32));
+        varify_edit->setMaximumSize(QSize(16777215, 32));
 
         horizontalLayout_3->addWidget(varify_edit);
 
         varify_btn = new TimerBtn(widget_3);
         varify_btn->setObjectName(QString::fromUtf8("varify_btn"));
-        varify_btn->setMinimumSize(QSize(0, 25));
-        varify_btn->setMaximumSize(QSize(16777215, 25));
+        varify_btn->setMinimumSize(QSize(0, 32));
+        varify_btn->setMaximumSize(QSize(16777215, 32));
 
         horizontalLayout_3->addWidget(varify_btn);
 
@@ -148,15 +148,15 @@ public:
         horizontalLayout_4->setObjectName(QString::fromUtf8("horizontalLayout_4"));
         pwd_lb = new QLabel(widget_4);
         pwd_lb->setObjectName(QString::fromUtf8("pwd_lb"));
-        pwd_lb->setMinimumSize(QSize(0, 25));
-        pwd_lb->setMaximumSize(QSize(16777215, 25));
+        pwd_lb->setMinimumSize(QSize(0, 32));
+        pwd_lb->setMaximumSize(QSize(16777215, 32));
 
         horizontalLayout_4->addWidget(pwd_lb);
 
         pwd_edit = new QLineEdit(widget_4);
         pwd_edit->setObjectName(QString::fromUtf8("pwd_edit"));
-        pwd_edit->setMinimumSize(QSize(0, 25));
-        pwd_edit->setMaximumSize(QSize(16777215, 25));
+        pwd_edit->setMinimumSize(QSize(0, 32));
+        pwd_edit->setMaximumSize(QSize(16777215, 32));
 
         horizontalLayout_4->addWidget(pwd_edit);
 
@@ -173,15 +173,15 @@ public:
         horizontalLayout_5->setObjectName(QString::fromUtf8("horizontalLayout_5"));
         sure_btn = new QPushButton(widget_5);
         sure_btn->setObjectName(QString::fromUtf8("sure_btn"));
-        sure_btn->setMinimumSize(QSize(0, 25));
-        sure_btn->setMaximumSize(QSize(16777215, 25));
+        sure_btn->setMinimumSize(QSize(0, 32));
+        sure_btn->setMaximumSize(QSize(16777215, 32));
 
         horizontalLayout_5->addWidget(sure_btn);
 
         return_btn = new QPushButton(widget_5);
         return_btn->setObjectName(QString::fromUtf8("return_btn"));
-        return_btn->setMinimumSize(QSize(0, 25));
-        return_btn->setMaximumSize(QSize(16777215, 25));
+        return_btn->setMinimumSize(QSize(0, 32));
+        return_btn->setMaximumSize(QSize(16777215, 32));
 
         horizontalLayout_5->addWidget(return_btn);
 

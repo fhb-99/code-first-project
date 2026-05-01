@@ -11,12 +11,29 @@ RegisterDialog::RegisterDialog(QWidget *parent) :
     ui(new Ui::RegisterDialog),_countdown(5)
 {
     ui->setupUi(this);
+    setWindowTitle(tr("注册"));
+    setStyleSheet(
+        "QDialog#RegisterDialog { background:#eef2f7; }"
+        "QWidget#widget, QWidget#widget_2 { background:#ffffff; border:1px solid #d8dde6; border-radius:8px; }"
+        "QLineEdit { background:#ffffff; border:1px solid #cfd6e2; border-radius:6px; padding:4px 8px; }"
+        "QLineEdit:focus { border:1px solid #5b78b3; }"
+        "QPushButton, TimerBtn { background:#f7f9fc; border:1px solid #cfd6e2; border-radius:6px; padding:6px 10px; }"
+        "QPushButton:hover, TimerBtn:hover { background:#ebf0f8; }"
+        "QPushButton:pressed, TimerBtn:pressed { background:#dee7f5; }"
+        "QLabel { color:#2f3a4a; }"
+        "QLabel#tip_lb { color:#4f6ea8; font-weight:600; }"
+        "QLabel#err_tip[state=\"err\"] { color:#d1495b; font-weight:600; }"
+        "QLabel#err_tip[state=\"normal\"] { color:#2f3a4a; }"
+    );
     ui->user_edit->setValidator(new QRegExpValidator(QRegExp("[a-zA-Z0-9]+$")));
     //设置密码格式隐藏
     ui->pass_edit->setEchoMode(QLineEdit::Password);
     ui->confirm_edit->setEchoMode(QLineEdit::Password);
     ui->err_tip->setProperty("state","normal");
     repolish(ui->err_tip);
+    // Hide tip container by default; only show when there is actual tip text.
+    ui->widget->setVisible(false);
+    ui->err_tip->setVisible(false);
     connect(HttpMgr::GetInstance().get(), &HttpMgr::sig_reg_mod_finish, this,
             &RegisterDialog::slot_reg_mod_finish);
     initHttpHandlers();
@@ -293,6 +310,8 @@ void RegisterDialog::DelTipErr(TipErr te)
     _tip_errs.remove(te);
     if(_tip_errs.empty()){
       ui->err_tip->clear();
+      ui->err_tip->setVisible(false);
+      ui->widget->setVisible(false);
       return;
     }
 
@@ -310,6 +329,16 @@ void RegisterDialog::ChangeTipPage()
 
 void RegisterDialog::showTip(QString str, bool b_ok)
 {
+    if (str.trimmed().isEmpty()) {
+        ui->err_tip->clear();
+        ui->err_tip->setVisible(false);
+        ui->widget->setVisible(false);
+        return;
+    }
+
+    ui->widget->setVisible(true);
+    ui->err_tip->setVisible(true);
+
     if(b_ok){
          ui->err_tip->setProperty("state","normal");
     }else{

@@ -29,6 +29,7 @@ SOURCES += \
     data/usermgr.cpp \
     main.cpp \
     mainwindow.cpp \
+    media/decodepipeline.cpp \
     media/mediapipeline.cpp \
     media/streamcontroller.cpp \
     net/httpmgr.cpp \
@@ -75,11 +76,13 @@ SOURCES += \
     ui/widgets/timerbtn.cpp
 
 HEADERS += \
+    core/ffmpeg_util.h \
     core/global.h \
     core/singleton.h \
     data/userdata.h \
     data/usermgr.h \
     mainwindow.h \
+    media/decodepipeline.h \
     media/mediapipeline.h \
     media/streamcontroller.h \
     net/httpmgr.h \

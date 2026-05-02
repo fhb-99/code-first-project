@@ -223,7 +223,7 @@
          </size>
         </property>
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="page">
          <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -373,19 +373,36 @@
              <enum>QFrame::StyledPanel</enum>
             </property>
             <layout class="QHBoxLayout" name="horizontalLayout_stream_search">
-             <property name="leftMargin"><number>6</number></property>
-             <property name="topMargin"><number>6</number></property>
-             <property name="rightMargin"><number>6</number></property>
-             <property name="bottomMargin"><number>6</number></property>
+             <property name="leftMargin">
+              <number>6</number>
+             </property>
+             <property name="topMargin">
+              <number>6</number>
+             </property>
+             <property name="rightMargin">
+              <number>6</number>
+             </property>
+             <property name="bottomMargin">
+              <number>6</number>
+             </property>
              <item>
               <widget class="QLineEdit" name="edit_stream_search">
-               <property name="placeholderText"><string>???ID / ??</string></property>
+               <property name="placeholderText">
+                <string>???ID / ??</string>
+               </property>
               </widget>
              </item>
              <item>
               <widget class="QPushButton" name="btn_stream_search">
-               <property name="minimumSize"><size><width>56</width><height>26</height></size></property>
-               <property name="text"><string>??</string></property>
+               <property name="minimumSize">
+                <size>
+                 <width>56</width>
+                 <height>26</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>??</string>
+               </property>
               </widget>
              </item>
             </layout>
@@ -393,7 +410,9 @@
           </item>
           <item>
            <widget class="QLabel" name="lb_stream_list_title">
-            <property name="text"><string>??????</string></property>
+            <property name="text">
+             <string>??????</string>
+            </property>
            </widget>
           </item>
           <item>
@@ -401,38 +420,95 @@
           </item>
           <item>
            <widget class="QFrame" name="frame_session_bar">
-            <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+            <property name="frameShape">
+             <enum>QFrame::StyledPanel</enum>
+            </property>
             <layout class="QHBoxLayout" name="horizontalLayout_session_bar">
-             <property name="leftMargin"><number>6</number></property>
-             <property name="topMargin"><number>6</number></property>
-             <property name="rightMargin"><number>6</number></property>
-             <property name="bottomMargin"><number>6</number></property>
-             <item><widget class="QPushButton" name="btn_create_session"><property name="text"><string>????</string></property></widget></item>
-             <item><widget class="QPushButton" name="btn_join_session"><property name="text"><string>????</string></property></widget></item>
+             <property name="leftMargin">
+              <number>6</number>
+             </property>
+             <property name="topMargin">
+              <number>6</number>
+             </property>
+             <property name="rightMargin">
+              <number>6</number>
+             </property>
+             <property name="bottomMargin">
+              <number>6</number>
+             </property>
+             <item>
+              <widget class="QPushButton" name="btn_create_session">
+               <property name="text">
+                <string>????</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btn_join_session">
+               <property name="text">
+                <string>????</string>
+               </property>
+              </widget>
+             </item>
             </layout>
            </widget>
           </item>
           <item>
            <widget class="QLabel" name="lb_session_list_title">
-            <property name="text"><string>????</string></property>
+            <property name="text">
+             <string>????</string>
+            </property>
            </widget>
           </item>
           <item>
            <widget class="QListWidget" name="list_sessions">
-            <property name="minimumSize"><size><width>0</width><height>120</height></size></property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>120</height>
+             </size>
+            </property>
            </widget>
           </item>
           <item>
            <widget class="QFrame" name="frame_collab_info">
-            <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+            <property name="frameShape">
+             <enum>QFrame::StyledPanel</enum>
+            </property>
             <layout class="QVBoxLayout" name="verticalLayout_collab_info">
-             <property name="leftMargin"><number>8</number></property>
-             <property name="topMargin"><number>6</number></property>
-             <property name="rightMargin"><number>8</number></property>
-             <property name="bottomMargin"><number>6</number></property>
-             <item><widget class="QLabel" name="lb_collab_title"><property name="text"><string>????</string></property></widget></item>
-             <item><widget class="QLabel" name="lb_collab_master"><property name="text"><string>??: -</string></property></widget></item>
-             <item><widget class="QLabel" name="lb_collab_mode"><property name="text"><string>??: ???</string></property></widget></item>
+             <property name="leftMargin">
+              <number>8</number>
+             </property>
+             <property name="topMargin">
+              <number>6</number>
+             </property>
+             <property name="rightMargin">
+              <number>8</number>
+             </property>
+             <property name="bottomMargin">
+              <number>6</number>
+             </property>
+             <item>
+              <widget class="QLabel" name="lb_collab_title">
+               <property name="text">
+                <string>????</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lb_collab_master">
+               <property name="text">
+                <string>??: -</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lb_collab_mode">
+               <property name="text">
+                <string>??: ???</string>
+               </property>
+              </widget>
+             </item>
             </layout>
            </widget>
           </item>
@@ -452,7 +528,7 @@
       </size>
      </property>
      <property name="currentIndex">
-      <number>3</number>
+      <number>2</number>
      </property>
      <widget class="ChatPage" name="chat_page"/>
      <widget class="ApplyFriendPage" name="friend_apply_page"/>

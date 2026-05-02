@@ -408,6 +408,62 @@ void TcpMgr::initHandlers()
                 jsonObj["touid"].toInt(),jsonObj["text_array"].toArray());
         emit sig_text_chat_msg(msg_ptr);
       });
+
+    auto parseMediaJson = [this](ReqId id, const QByteArray& data) -> QJsonObject {
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
+        if (jsonDoc.isNull() || !jsonDoc.isObject()) {
+            qDebug() << "media json parse failed, id =" << id << " raw =" << data;
+            return QJsonObject();
+        }
+        return jsonDoc.object();
+    };
+
+    _handlers.insert(ID_MEDIA_LIST_RSP, [this, parseMediaJson](ReqId id, int len, QByteArray data) {
+        Q_UNUSED(len);
+        auto obj = parseMediaJson(id, data);
+        emit sig_media_common_rsp(id, obj);
+        emit sig_media_stream_list(obj.value("streams").toArray());
+    });
+
+    _handlers.insert(ID_MEDIA_SESSION_LIST_RSP, [this, parseMediaJson](ReqId id, int len, QByteArray data) {
+        Q_UNUSED(len);
+        auto obj = parseMediaJson(id, data);
+        emit sig_media_common_rsp(id, obj);
+        emit sig_media_session_list(obj.value("sessions").toArray());
+    });
+
+    _handlers.insert(ID_MEDIA_PLAY_RSP, [this, parseMediaJson](ReqId id, int len, QByteArray data) {
+        Q_UNUSED(len);
+        auto obj = parseMediaJson(id, data);
+        emit sig_media_common_rsp(id, obj);
+        emit sig_media_play_rsp(obj);
+    });
+
+    _handlers.insert(ID_MEDIA_STOP_RSP, [this, parseMediaJson](ReqId id, int len, QByteArray data) {
+        Q_UNUSED(len);
+        auto obj = parseMediaJson(id, data);
+        emit sig_media_common_rsp(id, obj);
+        emit sig_media_stop_rsp(obj);
+    });
+
+    _handlers.insert(ID_MEDIA_SYNC_NOTIFY, [this, parseMediaJson](ReqId id, int len, QByteArray data) {
+        Q_UNUSED(len);
+        auto obj = parseMediaJson(id, data);
+        emit sig_media_common_rsp(id, obj);
+        emit sig_media_sync_notify(obj);
+    });
+
+    _handlers.insert(ID_MEDIA_CREATE_SESSION_RSP, [this, parseMediaJson](ReqId id, int len, QByteArray data) {
+        Q_UNUSED(len);
+        auto obj = parseMediaJson(id, data);
+        emit sig_media_common_rsp(id, obj);
+    });
+
+    _handlers.insert(ID_MEDIA_JOIN_SESSION_RSP, [this, parseMediaJson](ReqId id, int len, QByteArray data) {
+        Q_UNUSED(len);
+        auto obj = parseMediaJson(id, data);
+        emit sig_media_common_rsp(id, obj);
+    });
 }
 
 void TcpMgr::handleMsg(ReqId id, int len, QByteArray data)

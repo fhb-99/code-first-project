@@ -1,0 +1,24 @@
+#ifndef MEDIAPIPELINE_H
+#define MEDIAPIPELINE_H
+
+#include <QObject>
+#include <QString>
+
+class QWidget;
+
+// MediaPipeline 是“解封装+解码+渲染”入口适配层。
+// 当前项目先保留接口，后续在 cpp 中接 FFmpeg/SDL/OpenGL 实现。
+class MediaPipeline : public QObject
+{
+    Q_OBJECT
+public:
+    explicit MediaPipeline(QObject *parent = nullptr);
+    bool StartPlay(const QString& playUrl, QWidget* renderHost);
+    void Pause(bool pause);
+    void Stop();
+    void SeekMs(qint64 posMs);
+    void SetVolume(int vol);
+};
+
+#endif // MEDIAPIPELINE_H
+

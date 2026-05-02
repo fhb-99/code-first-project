@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>780</width>
-    <height>560</height>
+    <width>578</width>
+    <height>641</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -41,27 +41,56 @@ QPushButton {
   border: 1px solid #cfd6e2;
   border-radius: 6px;
   padding: 4px 12px;
+  color: #1f2937;
 }
 QPushButton:hover {
-  background: #e9eef7;
+  background: #e3ebfa;
+  border: 1px solid #9fb4d9;
 }
 QPushButton:pressed {
-  background: #dde6f5;
+  background: #d2def5;
+  border: 1px solid #6f8fc4;
+  padding-top: 5px;
+  padding-left: 13px;
 }
 QPushButton#btn_play {
   background: #1f9d55;
   border: 1px solid #178045;
   color: white;
 }
+QPushButton#btn_play:hover {
+  background: #25b25f;
+  border: 1px solid #1c9650;
+}
+QPushButton#btn_play:pressed {
+  background: #178045;
+  border: 1px solid #126c3c;
+}
 QPushButton#btn_pause {
   background: #f2b01e;
   border: 1px solid #d89a13;
   color: #1f1f1f;
 }
+QPushButton#btn_pause:hover {
+  background: #ffc239;
+  border: 1px solid #dea01a;
+}
+QPushButton#btn_pause:pressed {
+  background: #d89a13;
+  border: 1px solid #b68110;
+}
 QPushButton#btn_stop {
   background: #e25555;
   border: 1px solid #c74747;
   color: white;
+}
+QPushButton#btn_stop:hover {
+  background: #f06a6a;
+  border: 1px solid #d75858;
+}
+QPushButton#btn_stop:pressed {
+  background: #c74747;
+  border: 1px solid #a93a3a;
 }
 QSlider::groove:horizontal {
   border: 1px solid #c9d1de;
@@ -120,7 +149,7 @@ QSlider::handle:horizontal {
          <string>Player Workspace</string>
         </property>
         <property name="alignment">
-         <set>Qt::AlignVCenter|Qt::AlignLeft</set>
+         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
         </property>
        </widget>
       </item>

@@ -878,3 +878,30 @@ QDialog#ChatDialog {
 #media_player_page {
     background: #ffffff;
 }
+
+/* Player left panel buttons feedback */
+#btn_stream_search,
+#btn_create_session,
+#btn_join_session {
+    background: #f7f9fc;
+    border: 1px solid #c9d3e4;
+    border-radius: 6px;
+    color: #1f2937;
+    padding: 4px 10px;
+}
+
+#btn_stream_search:hover,
+#btn_create_session:hover,
+#btn_join_session:hover {
+    background: #e7eefb;
+    border: 1px solid #9db5de;
+}
+
+#btn_stream_search:pressed,
+#btn_create_session:pressed,
+#btn_join_session:pressed {
+    background: #d7e3f8;
+    border: 1px solid #6f8fc4;
+    padding-top: 5px;
+    padding-left: 11px;
+}

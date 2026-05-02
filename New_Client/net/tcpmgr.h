@@ -43,6 +43,12 @@ signals:
     void sig_add_auth_friend(std::shared_ptr<AuthInfo>);
     void sig_auth_rsp(std::shared_ptr<AuthRsp>);
     void sig_text_chat_msg(std::shared_ptr<TextChatMsg> msg);
+    void sig_media_stream_list(QJsonArray streams);
+    void sig_media_session_list(QJsonArray sessions);
+    void sig_media_play_rsp(QJsonObject obj);
+    void sig_media_stop_rsp(QJsonObject obj);
+    void sig_media_sync_notify(QJsonObject obj);
+    void sig_media_common_rsp(ReqId id, QJsonObject obj);
 };
 
 #endif // TCPMGR_H

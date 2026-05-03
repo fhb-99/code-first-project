@@ -3,37 +3,59 @@
 
 #include "ffmpeg_util.h"
 #include "global.h"
-#include <Thread>
-#include <mutex>
+#include <atomic>
+#include <thread>
 
 // 负责解封装、解码
 
-class DecodePipeline : public std::thread
+class DecodePipeline
 {
 public:
     DecodePipeline();
     ~DecodePipeline();
 
+    // open(url) + 在工作线程跑后续读包/解码（open_input/find_stream_info 仍会阻塞调用方）
+    int start_decode_worker(const std::string& url);
+    // 置退出标志 → join 线程 → 释放 FFmpeg（可重复调用）
+    void stop_decode_worker();
 
 private:
-
     int open(const std::string& url);   //解封装 + 解码初始化
-    void close();  //释放资源
 
-    AVDictionary*   fmt_opts;         // 格式上下文参数（如RTSP传输方式、超时）
-    AVDictionary*   codec_opts;       // 解码器参数（如帧引用计数）
-    AVFormatContext * fmt_ctx;        //格式上下文
-    AVCodecContext * audio_dec_ctx;   //音频解码上下文
-    AVCodecContext * video_dec_ctx;   //视频解码上下文
+    void close();  //仅释放 FFmpeg 资源（调用前必须已停止工作线程）
+    void join_decode_worker();
 
-    AVPacket * packet;  //解封装后得到的压缩数据包
-    AVFrame * audio_frame;    //解码后的原始音频帧
-    AVFrame * video_frame;    //解码后的原始视频帧
+    // open() 出错时按进度分别调用下列释放函数，避免直接调用 close()
+    void releasePacketAndFrames();
+    void releaseDecoderContexts();
+    void releaseFormatContext();
+    void releaseFmtOptsDict();
 
-    // 流索引（区分视频/音频/字幕流）
-    int video_stream_index;
+    // 工作线程入口：在此处实现 av_read_frame / send_packet / receive_frame …
+    void decode_loop_worker();
+
+    AVDictionary*       fmt_opts;         // 格式上下文参数（如RTSP传输方式、超时）
+    //AVDictionary*       codec_opts;       // 解码器参数（如帧引用计数）
+    AVFormatContext*    fmt_ctx;          //格式上下文
+    AVCodecContext*     audio_dec_ctx;    //音频解码上下文
+    AVCodecContext*     video_dec_ctx;    //视频解码上下文
+
+    AVPacket* packet;   //解封装后得到的压缩数据包
+    AVFrame* audio_frame; //解码后的原始音频帧
+    AVFrame* video_frame; //解码后的原始视频帧
+
+    int video_stream_index;   // 流索引（区分视频/音频/字幕流）
     int audio_stream_index;
     int subtitle_stream_index;
+
+    // 时间基，FFmpeg时间戳转换：时间戳(ms) = pts * time_base.num / time_base.den * 1000）
+    int video_time_base_num;
+    int video_time_base_den;
+    int audio_time_base_num;
+    int audio_time_base_den;
+
+    std::thread       decode_thread_;
+    std::atomic<bool> decode_quit_;       // true 表示要求工作线程退出
 };
 
 #endif // DECODEPIPELINE_H

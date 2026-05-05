@@ -13,6 +13,7 @@
 class VideoRenderer
 {
 public:
+    VideoRenderer() = default;
     virtual ~VideoRenderer() = default;
 
     VideoRenderer(const VideoRenderer&) = delete;

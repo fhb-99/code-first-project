@@ -2,17 +2,32 @@
 #define DECODEPIPELINE_H
 
 #include "ffmpeg_util.h"
+#include "AVDecodeAbstract.h"
 #include "global.h"
 #include <atomic>
 #include <thread>
 
 // 负责解封装、解码
 
-class DecodePipeline
+class DecodePipeline : public AVDecodeAbstract
 {
 public:
     DecodePipeline();
-    ~DecodePipeline();
+    virtual ~DecodePipeline();
+
+    virtual int start(const std::string& url) {
+        return start_decode_worker(url);
+    }
+
+    virtual void stop() {
+        stop_decode_worker();
+    }
+
+    virtual int pause() { return 0; }
+
+    virtual int resume() { return 0; }
+
+    virtual int seek(int64_t ms);
 
     // open(url) + 在工作线程跑后续读包/解码（open_input/find_stream_info 仍会阻塞调用方）
     int start_decode_worker(const std::string& url);

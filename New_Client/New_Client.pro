@@ -24,6 +24,7 @@ INCLUDEPATH += $$PWD/3rd/include
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    core/framebuffer.cpp \
     core/global.cpp \
     data/userdata.cpp \
     data/usermgr.cpp \
@@ -31,6 +32,7 @@ SOURCES += \
     mainwindow.cpp \
     media/decodepipeline.cpp \
     media/mediapipeline.cpp \
+    media/video_renderer_gl_qtwidget.cpp \
     media/streamcontroller.cpp \
     net/httpmgr.cpp \
     net/tcpmgr.cpp \
@@ -77,14 +79,18 @@ SOURCES += \
 
 HEADERS += \
     core/ffmpeg_util.h \
+    core/framebuffer.h \
     core/global.h \
     core/singleton.h \
     data/userdata.h \
     data/usermgr.h \
     mainwindow.h \
+    media/AVDecodeAbstract.h \
     media/decodepipeline.h \
     media/mediapipeline.h \
     media/streamcontroller.h \
+    media/video_renderer.h \
+    media/video_renderer_gl_qtwidget.h \
     net/httpmgr.h \
     net/tcpmgr.h \
     ui/dialogs/chatdialog.h \

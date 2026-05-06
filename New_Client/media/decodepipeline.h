@@ -29,6 +29,14 @@ public:
 
     virtual int seek(int64_t ms);
 
+    /** 视频流的 time_base，用于 PTS → 秒的换算（音视频同步时用） */
+    AVRational videoTimeBase() const
+    {
+        return {video_time_base_num, video_time_base_den};
+    }
+    /** 音频流的 time_base，与音频帧 pts 成套使用 */
+    AVRational audioTimeBase() const { return {audio_time_base_num, audio_time_base_den}; }
+
     // open(url) + 在工作线程跑后续读包/解码（open_input/find_stream_info 仍会阻塞调用方）
     int start_decode_worker(const std::string& url);
     // 置退出标志 → join 线程 → 释放 FFmpeg（可重复调用）

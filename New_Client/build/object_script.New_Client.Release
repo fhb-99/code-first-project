@@ -1,8 +1,14 @@
+release/framebuffer.o
 release/global.o
 release/userdata.o
 release/usermgr.o
 release/main.o
 release/mainwindow.o
+release/decodepipeline.o
+release/mediapipeline.o
+release/sdlaudiooutput.o
+release/video_renderer_gl_qtwidget.o
+release/streamcontroller.o
 release/httpmgr.o
 release/tcpmgr.o
 release/chatdialog.o
@@ -48,6 +54,10 @@ release/timerbtn.o
 release/qrc_rc.o
 release/moc_usermgr.o
 release/moc_mainwindow.o
+release/moc_mediapipeline.o
+release/moc_sdlaudiooutput.o
+release/moc_streamcontroller.o
+release/moc_video_renderer_gl_qtwidget.o
 release/moc_httpmgr.o
 release/moc_tcpmgr.o
 release/moc_chatdialog.o

@@ -41,7 +41,6 @@ public:
     QVBoxLayout *verticalLayout_controls;
     QHBoxLayout *horizontalLayout_controls_top;
     QPushButton *btn_play;
-    QPushButton *btn_pause;
     QPushButton *btn_stop;
     QSpacerItem *horizontalSpacer_controls_mid;
     QLabel *lb_volume;
@@ -60,7 +59,7 @@ public:
     {
         if (mediaplayerpage->objectName().isEmpty())
             mediaplayerpage->setObjectName(QString::fromUtf8("mediaplayerpage"));
-        mediaplayerpage->resize(780, 560);
+        mediaplayerpage->resize(578, 641);
         mediaplayerpage->setStyleSheet(QString::fromUtf8("QDialog#mediaplayerpage {\n"
 "  background: #eef1f5;\n"
 "}\n"
@@ -88,28 +87,46 @@ public:
 "  border: 1px solid #cfd6e2;\n"
 "  border-radius: 6px;\n"
 "  padding: 4px 12px;\n"
+"  color: #1f2937;\n"
 "}\n"
 "QPushButton:hover {\n"
-"  background: #e9eef7;\n"
+"  background: #e3ebfa;\n"
+"  border: 1px solid #9fb4d9;\n"
 "}\n"
 "QPushButton:pressed {\n"
-"  background: #dde6f5;\n"
+"  background: #d2def5;\n"
+"  border: 1px solid #6f8fc4;\n"
+"  padding-top: 5px;\n"
+"  padding-left: 13px;\n"
 "}\n"
 "QPushButton#btn_play {\n"
+"  min-width: 96px;\n"
+"  font-weight: 600;\n"
 "  background: #1f9d55;\n"
-"  border: 1px solid #178045;\n"
+"  border: 1px solid "
+                        "#178045;\n"
 "  color: white;\n"
 "}\n"
-"QPushButton#btn_pause {\n"
-"  background: #f2b01e;\n"
-"  border: 1px solid #d89a13;\n"
-"  color: #1f1f1f;\n"
+"QPushButton#btn_play:hover {\n"
+"  background: #25b25f;\n"
+"  border: 1px solid #1c9650;\n"
+"}\n"
+"QPushButton#btn_play:pressed {\n"
+"  background: #178045;\n"
+"  border: 1px solid #126c3c;\n"
 "}\n"
 "QPushButton#btn_stop {\n"
-"  b"
-                        "ackground: #e25555;\n"
+"  background: #e25555;\n"
 "  border: 1px solid #c74747;\n"
 "  color: white;\n"
+"}\n"
+"QPushButton#btn_stop:hover {\n"
+"  background: #f06a6a;\n"
+"  border: 1px solid #d75858;\n"
+"}\n"
+"QPushButton#btn_stop:pressed {\n"
+"  background: #c74747;\n"
+"  border: 1px solid #a93a3a;\n"
 "}\n"
 "QSlider::groove:horizontal {\n"
 "  border: 1px solid #c9d1de;\n"
@@ -137,7 +154,7 @@ public:
         horizontalLayout_header->setContentsMargins(10, 6, 10, 6);
         lb_page_title = new QLabel(frame_header);
         lb_page_title->setObjectName(QString::fromUtf8("lb_page_title"));
-        lb_page_title->setAlignment(Qt::AlignVCenter|Qt::AlignLeft);
+        lb_page_title->setAlignment(Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter);
 
         horizontalLayout_header->addWidget(lb_page_title);
 
@@ -189,15 +206,9 @@ public:
         horizontalLayout_controls_top->setObjectName(QString::fromUtf8("horizontalLayout_controls_top"));
         btn_play = new QPushButton(frame_controls);
         btn_play->setObjectName(QString::fromUtf8("btn_play"));
-        btn_play->setMinimumSize(QSize(72, 28));
+        btn_play->setMinimumSize(QSize(96, 32));
 
         horizontalLayout_controls_top->addWidget(btn_play);
-
-        btn_pause = new QPushButton(frame_controls);
-        btn_pause->setObjectName(QString::fromUtf8("btn_pause"));
-        btn_pause->setMinimumSize(QSize(72, 28));
-
-        horizontalLayout_controls_top->addWidget(btn_pause);
 
         btn_stop = new QPushButton(frame_controls);
         btn_stop->setObjectName(QString::fromUtf8("btn_stop"));
@@ -235,7 +246,10 @@ public:
 
         slider_progress = new QSlider(frame_controls);
         slider_progress->setObjectName(QString::fromUtf8("slider_progress"));
-        slider_progress->setMaximum(1000);
+        slider_progress->setTracking(true);
+        slider_progress->setMinimum(0);
+        slider_progress->setMaximum(1);
+        slider_progress->setPageStep(1);
         slider_progress->setOrientation(Qt::Horizontal);
 
         horizontalLayout_progress->addWidget(slider_progress);
@@ -289,8 +303,7 @@ public:
         lb_page_title->setText(QApplication::translate("mediaplayerpage", "Player Workspace", nullptr));
         lb_session->setText(QApplication::translate("mediaplayerpage", "Session: room_default", nullptr));
         lb_video_placeholder->setText(QApplication::translate("mediaplayerpage", "Video Render Area", nullptr));
-        btn_play->setText(QApplication::translate("mediaplayerpage", "Play", nullptr));
-        btn_pause->setText(QApplication::translate("mediaplayerpage", "Pause", nullptr));
+        btn_play->setText(QApplication::translate("mediaplayerpage", "\342\226\266 \346\222\255\346\224\276", nullptr));
         btn_stop->setText(QApplication::translate("mediaplayerpage", "Stop", nullptr));
         lb_volume->setText(QApplication::translate("mediaplayerpage", "Volume", nullptr));
         lb_time_current->setText(QApplication::translate("mediaplayerpage", "00:00:00", nullptr));

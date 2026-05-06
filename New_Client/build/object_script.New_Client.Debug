@@ -1,8 +1,14 @@
+debug/framebuffer.o
 debug/global.o
 debug/userdata.o
 debug/usermgr.o
 debug/main.o
 debug/mainwindow.o
+debug/decodepipeline.o
+debug/mediapipeline.o
+debug/sdlaudiooutput.o
+debug/video_renderer_gl_qtwidget.o
+debug/streamcontroller.o
 debug/httpmgr.o
 debug/tcpmgr.o
 debug/chatdialog.o
@@ -48,6 +54,10 @@ debug/timerbtn.o
 debug/qrc_rc.o
 debug/moc_usermgr.o
 debug/moc_mainwindow.o
+debug/moc_mediapipeline.o
+debug/moc_sdlaudiooutput.o
+debug/moc_streamcontroller.o
+debug/moc_video_renderer_gl_qtwidget.o
 debug/moc_httpmgr.o
 debug/moc_tcpmgr.o
 debug/moc_chatdialog.o

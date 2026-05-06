@@ -32,6 +32,7 @@ SOURCES += \
     mainwindow.cpp \
     media/decodepipeline.cpp \
     media/mediapipeline.cpp \
+    media/sdlaudiooutput.cpp \
     media/video_renderer_gl_qtwidget.cpp \
     media/streamcontroller.cpp \
     net/httpmgr.cpp \
@@ -88,6 +89,7 @@ HEADERS += \
     media/AVDecodeAbstract.h \
     media/decodepipeline.h \
     media/mediapipeline.h \
+    media/sdlaudiooutput.h \
     media/streamcontroller.h \
     media/video_renderer.h \
     media/video_renderer_gl_qtwidget.h \

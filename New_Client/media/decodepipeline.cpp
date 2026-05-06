@@ -3,6 +3,9 @@
 #include <QDebug>
 #include <algorithm>
 
+#include <libavutil/mathematics.h>
+#include <libavutil/rational.h>
+
 namespace {
 
 // FFmpeg 新式解码循环（与旧的 avcodec_decode_video2 / packet 单次解码不同）：
@@ -150,10 +153,48 @@ DecodePipeline::~DecodePipeline()
     stop_decode_worker();
 }
 
+/**
+ * Seek 到毫秒位置（相对媒体起始）。
+ *
+ * 步骤概要：
+ *   1) 停读包线程（join_decode_worker），避免与 demux/dec 并行。
+ *   2) 清空音视频输出队列 clear_buf。
+ *   3) av_seek_frame 将 demux 读指针移到目标附近（时间戳转成「视频轨」time_base）。
+ *   4) avcodec_flush_buffers 丢弃解码器内部残留，与新位置一致。
+ *   5) 重新拉起 decode_loop_worker。
+ *
+ * 直播/不可 seek 的音源上会失败（返回负数），仍会重启线程以保持播放不断。
+ */
 int DecodePipeline::seek(int64_t ms)
 {
-    //todo
-    return 0;
+    if (!fmt_ctx || video_stream_index < 0 || !video_dec_ctx || !audio_dec_ctx)
+        return -1;
+
+    if (ms < 0)
+        ms = 0;
+
+    join_decode_worker();
+
+    clear_buf();
+
+    AVStream* vst = fmt_ctx->streams[video_stream_index];
+    // UI 毫秒 → 微秒，再换算到所选视频轨的时间基刻度（与 av_seek_frame 要求一致）
+    const AVRational usTb = av_make_q(1, AV_TIME_BASE);
+    const int64_t microseconds = ms * INT64_C(1000);
+    const int64_t tsInStreamTb = av_rescale_q(microseconds, usTb, vst->time_base);
+
+    int seekRet = av_seek_frame(fmt_ctx, video_stream_index, tsInStreamTb, AVSEEK_FLAG_BACKWARD);
+    if (seekRet >= 0) {
+        avcodec_flush_buffers(audio_dec_ctx);
+        avcodec_flush_buffers(video_dec_ctx);
+    } else {
+        ffmpegLogErr("av_seek_frame", seekRet);
+    }
+
+    decode_quit_.store(false, std::memory_order_release);
+    decode_thread_ = std::thread(&DecodePipeline::decode_loop_worker, this);
+
+    return seekRet;
 }
 
 void DecodePipeline::releasePacketAndFrames()

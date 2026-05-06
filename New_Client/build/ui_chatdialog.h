@@ -346,8 +346,8 @@ public:
 
         retranslateUi(ChatDialog);
 
-        stackedWidget_2->setCurrentIndex(1);
-        stackedWidget->setCurrentIndex(3);
+        stackedWidget_2->setCurrentIndex(0);
+        stackedWidget->setCurrentIndex(2);
 
 
         QMetaObject::connectSlotsByName(ChatDialog);

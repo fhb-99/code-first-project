@@ -42,6 +42,9 @@ public:
     // 置退出标志 → join 线程 → 释放 FFmpeg（可重复调用）
     void stop_decode_worker();
 
+    //封装总时长，ms， 未知或者无效为-1；
+    int64_t durationMs() const;
+
 private:
     int open(const std::string& url);   //解封装 + 解码初始化
 

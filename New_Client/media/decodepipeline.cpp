@@ -512,3 +512,19 @@ void DecodePipeline::stop_decode_worker()
     clear_buf();          // 清空队列
     close();              // 再统一 avcodec_free / avformat_close_input 等
 }
+
+int64_t DecodePipeline::durationMs() const
+{
+    if(!fmt_ctx) {
+        return -1;
+    }
+    //判断输入流是否是直播流，因为直播流duration是AV_NOPTS_VALUE未知，表示无限
+    if(fmt_ctx->duration == AV_NOPTS_VALUE) {
+        return -1;
+    }
+    int64_t total_milliseconds = fmt_ctx->duration / (AV_TIME_BASE / 1000); // 毫秒
+    if(total_milliseconds <= 0) {
+        return -1;
+    }
+    return total_milliseconds;
+}

@@ -30,6 +30,8 @@ public:
 private slots:
     void onPullVideoFrame();
 
+    void onUpdateProgressbar();
+
 private:
     std::unique_ptr<DecodePipeline> decoder_;
     QtGlVideoRenderer* video_renderer_{nullptr};
@@ -38,11 +40,15 @@ private:
     bool paused_{false};
     std::unique_ptr<SdlAudioOutput> audio_output_;
 
+    QTimer * progress_timer{nullptr};  //不停地向ui界面发送当前进度时间以及总时间，来更新进度条
+
     /**
      * 视频 FIFO 里最前面的帧若 PTS 远大于音频主钟，不能直接丢掉（还须按顺序播）。
      * 先攒在此，等音频主钟追上再参与与队列后续帧的合成。
      */
     AvFrameUniquePtr pending_early_video_;
+signals:
+    void sig_update_progressbar(qint64 positionMs, qint64 durationMs);
 };
 
 #endif // MEDIAPIPELINE_H

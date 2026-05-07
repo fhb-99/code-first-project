@@ -43,9 +43,30 @@ double frameVideoPtsSeconds(const AVFrame* f, AVRational tb)
 
 } // namespace
 
+
+
+static int64_t positionMsFromAudio(SdlAudioOutput* audio_output)
+{
+    if(!audio_output) {
+        return 0;
+    }
+    const double sec = audio_output->masterClockMediaSeconds();
+    //锚点未建立
+    if(std::isnan(sec)) {
+        return 0;
+    }
+    if(sec < 0) {
+        return 0;
+    }
+    return static_cast<int64_t>(sec * 1000 + 0.5);
+}
+
+
 MediaPipeline::MediaPipeline(QObject* parent)
     : QObject(parent)
 {
+    progress_timer = new QTimer(this);
+    connect(progress_timer, &QTimer::timeout, this, &MediaPipeline::onUpdateProgressbar);
 }
 
 MediaPipeline::~MediaPipeline()
@@ -122,6 +143,10 @@ bool MediaPipeline::StartPlay(const QString& playUrl, QWidget* renderHost)
     paused_ = false;
     pull_timer_->start(33);
     audio_output_->pause(false);
+
+    if (progress_timer)
+        progress_timer->start(100);
+    onUpdateProgressbar();
 
     return true;
 }
@@ -200,9 +225,24 @@ void MediaPipeline::onPullVideoFrame()
         video_renderer_->present(std::move(best));
 }
 
+void MediaPipeline::onUpdateProgressbar()
+{
+    if (!decoder_)
+        return;
+    const qint64 cur_time = static_cast<qint64>(positionMsFromAudio(audio_output_.get()));
+    const qint64 total_time = static_cast<qint64>(decoder_->durationMs());
+    emit sig_update_progressbar(cur_time, total_time);
+}
+
 void MediaPipeline::Pause(bool pause)
 {
     paused_ = pause;
+    if(progress_timer)
+        progress_timer->stop();
+
+    if (decoder_ && audio_output_ && !pause && progress_timer)
+        progress_timer->start(100);
+
     if (pull_timer_)
         pull_timer_->stop();
 
@@ -215,6 +255,9 @@ void MediaPipeline::Pause(bool pause)
 
 void MediaPipeline::Stop()
 {
+    if(progress_timer)
+        progress_timer->stop();
+
     if (pull_timer_)
         pull_timer_->stop();
 
@@ -252,6 +295,12 @@ void MediaPipeline::SeekMs(qint64 posMs)
 
     if (decoder_)
         (void)decoder_->seek(posMs);
+
+    if (decoder_) {
+        const qint64 cur_time = static_cast<qint64>(positionMsFromAudio(audio_output_.get()));
+        const qint64 total_time = static_cast<qint64>(decoder_->durationMs());
+        emit sig_update_progressbar(cur_time, total_time);
+    }
 }
 
 void MediaPipeline::SetVolume(int vol)

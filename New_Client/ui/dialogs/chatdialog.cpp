@@ -184,6 +184,9 @@ ChatDialog::ChatDialog(QWidget *parent) :
     connect(ui->media_player_page, &mediaplayerpage::sig_ui_seek_changed, this, &ChatDialog::slot_player_ui_seek_changed);
     connect(ui->media_player_page, &mediaplayerpage::sig_ui_volume_changed, this, &ChatDialog::slot_player_ui_volume_changed);
 
+    connect(_media_pipeline, &MediaPipeline::sig_update_progressbar, ui->media_player_page,
+            &mediaplayerpage::syncProgressFromPipeline);
+
     // preload stream/session data once player module is available
     _stream_controller->RequestStreamList("");
     _stream_controller->RequestSessionList();
@@ -937,22 +940,31 @@ void ChatDialog::slot_media_play_started(QString streamId, QString playUrl, QStr
     ui->media_player_page->SetSessionText(QString("Session: %1").arg(sessionId.isEmpty() ? "room_default" : sessionId));
     ui->media_player_page->SetStatusText("Status: Playing");
     ui->lb_collab_mode->setText(QString("模式: 播放中 %1").arg(streamId));
-    _media_pipeline->StartPlay(playUrl, ui->media_player_page->findChild<QWidget*>("video_render_host"));
+    if (!_media_pipeline->StartPlay(playUrl, ui->media_player_page->videoRenderHostWidget())) {
+        ui->media_player_page->resetPlaybackTimelineUi();
+        ui->media_player_page->SetStatusText(QStringLiteral("Status: Playback failed"));
+        slot_media_status(QStringLiteral("本地播放启动失败"));
+    }
 }
 
 void ChatDialog::slot_media_play_stopped()
 {
     _media_pipeline->Stop();
+    ui->media_player_page->resetPlaybackTimelineUi();
     ui->media_player_page->SetStatusText("Status: Idle");
     ui->lb_collab_mode->setText("模式: 已停止");
 }
 
 void ChatDialog::slot_media_sync_play(QString streamId, QString playUrl, QString sessionId)
 {
-    _media_pipeline->StartPlay(playUrl, ui->media_player_page->findChild<QWidget*>("video_render_host"));
     ui->media_player_page->SetCurrentStream(streamId, playUrl);
     ui->media_player_page->SetSessionText(QString("Session: %1").arg(sessionId));
     ui->media_player_page->SetStatusText("Status: Synced Playing");
+    if (!_media_pipeline->StartPlay(playUrl, ui->media_player_page->videoRenderHostWidget())) {
+        ui->media_player_page->resetPlaybackTimelineUi();
+        ui->media_player_page->SetStatusText(QStringLiteral("Status: Sync playback failed"));
+        slot_media_status(QStringLiteral("同步播放：本地管线启动失败"));
+    }
 }
 
 void ChatDialog::slot_media_status(QString text)
@@ -980,6 +992,7 @@ void ChatDialog::slot_player_ui_play_clicked()
 void ChatDialog::slot_player_ui_stop_clicked()
 {
     _media_pipeline->Stop();
+    ui->media_player_page->resetPlaybackTimelineUi();
     _stream_controller->StopStream(_selected_session_id);
 }
 

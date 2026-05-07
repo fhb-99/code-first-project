@@ -39,7 +39,7 @@ public:
 
     void clear() {
         std::lock_guard<std::mutex> lock(mutex);
-        FrameBufs = {};
+        FrameBufs.clear();
     }
 
 private:

@@ -27,6 +27,8 @@ public:
     QWidget* videoRenderHostWidget() const;
     /** 停止播放后将进度与时间标签复原 */
     void resetPlaybackTimelineUi();
+    /** hasSession/decoding 是否可用；paused 为管线侧 MediaPipeline::Pause(true) */
+    void updatePauseToggleUi(bool hasActiveSession, bool playbackPaused);
 
 public slots:
     /** MediaPipeline::sig_update_progressbar → 刷新当前/总时长与滑块（拖拽期间不覆盖） */

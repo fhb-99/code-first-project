@@ -153,6 +153,11 @@ DecodePipeline::~DecodePipeline()
     stop_decode_worker();
 }
 
+void DecodePipeline::pause(bool flag)
+{
+    video_pause.store(flag, std::memory_order_release);
+}
+
 /**
  * Seek 到毫秒位置（相对媒体起始）。
  *
@@ -449,6 +454,11 @@ void DecodePipeline::decode_loop_worker()
     while (!decode_quit_.load(std::memory_order_acquire)) {
         if (fmt_ctx == nullptr) {
             break;
+        }
+        if(video_pause.load(std::memory_order_acquire)) {
+            // 如果ui点击了暂停按钮，也就是为true，在这里continue，避免执行读包函数
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            continue;
         }
 
         // av_read_frame：从 AVFormatContext 读下一包压缩数据写入 packet（含 stream_index、pts 等）

@@ -27,6 +27,9 @@ public:
     void SeekMs(qint64 posMs);
     void SetVolume(int vol);
 
+    [[nodiscard]] bool hasActiveSession() const noexcept { return static_cast<bool>(decoder_); }
+    [[nodiscard]] bool isPlaybackPaused() const noexcept { return paused_; }
+
 private slots:
     void onPullVideoFrame();
 

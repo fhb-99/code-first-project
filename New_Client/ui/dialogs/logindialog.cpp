@@ -98,6 +98,8 @@ void LoginDialog::initHttpHandlers()
         si.Host = jsonObj["host"].toString();
         si.Port = jsonObj["port"].toString();
         si.Token = jsonObj["token"].toString();
+        auto media_host = jsonObj["media_host"].toString();
+        auto media_port = jsonObj["media_port"].toString();
 
         _uid = si.Uid;
         _token = si.Token;

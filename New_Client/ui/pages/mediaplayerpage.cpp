@@ -25,6 +25,8 @@ mediaplayerpage::mediaplayerpage(QWidget* parent)
     connect(ui->slider_progress, &QSlider::sliderReleased, [this]() {
         slider_progress_dragging_ = false;
     });
+
+    updatePauseToggleUi(false, false);
 }
 
 mediaplayerpage::~mediaplayerpage()
@@ -82,6 +84,23 @@ QString mediaplayerpage::formatSeconds(int sec) const
         .arg(s, 2, 10, QLatin1Char('0'));
 }
 
+void mediaplayerpage::updatePauseToggleUi(bool hasActiveSession, bool playbackPaused)
+{
+    ui->btn_pause->setEnabled(hasActiveSession);
+    if (!hasActiveSession) {
+        ui->btn_pause->setText(QStringLiteral("Pause"));
+        ui->btn_pause->setToolTip(QStringLiteral("暂停"));
+        return;
+    }
+    if (playbackPaused) {
+        ui->btn_pause->setText(QStringLiteral("Resume"));
+        ui->btn_pause->setToolTip(QStringLiteral("继续播放"));
+    } else {
+        ui->btn_pause->setText(QStringLiteral("Pause"));
+        ui->btn_pause->setToolTip(QStringLiteral("暂停"));
+    }
+}
+
 void mediaplayerpage::resetPlaybackTimelineUi()
 {
     slider_progress_dragging_ = false;
@@ -131,7 +150,6 @@ void mediaplayerpage::on_btn_play_clicked()
 
 void mediaplayerpage::on_btn_pause_clicked()
 {
-    SetStatusText(QStringLiteral("Status: Paused"));
     emit sig_ui_pause_clicked();
 }
 

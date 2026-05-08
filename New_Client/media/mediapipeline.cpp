@@ -251,6 +251,9 @@ void MediaPipeline::Pause(bool pause)
 
     if (audio_output_)
         audio_output_->pause(pause);
+
+    if(decoder_)
+        decoder_->pause(pause);
 }
 
 void MediaPipeline::Stop()

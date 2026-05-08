@@ -942,8 +942,11 @@ void ChatDialog::slot_media_play_started(QString streamId, QString playUrl, QStr
     ui->lb_collab_mode->setText(QString("模式: 播放中 %1").arg(streamId));
     if (!_media_pipeline->StartPlay(playUrl, ui->media_player_page->videoRenderHostWidget())) {
         ui->media_player_page->resetPlaybackTimelineUi();
+        ui->media_player_page->updatePauseToggleUi(false, false);
         ui->media_player_page->SetStatusText(QStringLiteral("Status: Playback failed"));
         slot_media_status(QStringLiteral("本地播放启动失败"));
+    } else {
+        ui->media_player_page->updatePauseToggleUi(true, false);
     }
 }
 
@@ -951,6 +954,7 @@ void ChatDialog::slot_media_play_stopped()
 {
     _media_pipeline->Stop();
     ui->media_player_page->resetPlaybackTimelineUi();
+    ui->media_player_page->updatePauseToggleUi(false, false);
     ui->media_player_page->SetStatusText("Status: Idle");
     ui->lb_collab_mode->setText("模式: 已停止");
 }
@@ -962,8 +966,11 @@ void ChatDialog::slot_media_sync_play(QString streamId, QString playUrl, QString
     ui->media_player_page->SetStatusText("Status: Synced Playing");
     if (!_media_pipeline->StartPlay(playUrl, ui->media_player_page->videoRenderHostWidget())) {
         ui->media_player_page->resetPlaybackTimelineUi();
+        ui->media_player_page->updatePauseToggleUi(false, false);
         ui->media_player_page->SetStatusText(QStringLiteral("Status: Sync playback failed"));
         slot_media_status(QStringLiteral("同步播放：本地管线启动失败"));
+    } else {
+        ui->media_player_page->updatePauseToggleUi(true, false);
     }
 }
 
@@ -993,13 +1000,27 @@ void ChatDialog::slot_player_ui_stop_clicked()
 {
     _media_pipeline->Stop();
     ui->media_player_page->resetPlaybackTimelineUi();
+    ui->media_player_page->updatePauseToggleUi(false, false);
     _stream_controller->StopStream(_selected_session_id);
 }
 
 void ChatDialog::slot_player_ui_pause_clicked()
 {
+    if (!_media_pipeline->hasActiveSession()) {
+        slot_media_status(QStringLiteral("当前无本地播放，请先开始播放"));
+        return;
+    }
+    if (_media_pipeline->isPlaybackPaused()) {
+        _media_pipeline->Pause(false);
+        ui->media_player_page->updatePauseToggleUi(true, false);
+        ui->media_player_page->SetStatusText(QStringLiteral("Status: Playing"));
+        slot_media_status(QStringLiteral("已继续播放"));
+        return;
+    }
     _media_pipeline->Pause(true);
-    slot_media_status("已暂停（本地UI状态）");
+    ui->media_player_page->updatePauseToggleUi(true, true);
+    ui->media_player_page->SetStatusText(QStringLiteral("Status: Paused"));
+    slot_media_status(QStringLiteral("已暂停本地播放"));
 }
 
 void ChatDialog::slot_player_ui_seek_changed(int value)

@@ -32,7 +32,7 @@ public:
 
     virtual int start(const std::string& url) = 0;
     virtual void stop() = 0;
-    virtual int pause() = 0;
+    virtual void pause(bool flag) = 0;
     virtual int resume() = 0;
 
     virtual int seek(int64_t ms) { return 0; }

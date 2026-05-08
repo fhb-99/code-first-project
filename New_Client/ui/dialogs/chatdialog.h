@@ -54,6 +54,7 @@ private:
     int _cur_chat_uid;
     StreamController* _stream_controller;
     MediaPipeline* _media_pipeline;
+    //std::array<std::unique_ptr<MediaPipeline>, 4> _media_pipelines;
     QString _selected_stream_id;
     QString _selected_session_id;
 public slots:

@@ -10,6 +10,11 @@
 #include <memory>
 #include "userdata.h"
 #include <QListWidgetItem>
+#include <QJsonArray>
+#include <QJsonObject>
+
+class StreamController;
+class MediaPipeline;
 
 namespace Ui {
 class ChatDialog;
@@ -47,6 +52,11 @@ private:
     //todo...
     QMap<int, QListWidgetItem*> _chat_items_added;
     int _cur_chat_uid;
+    StreamController* _stream_controller;
+    MediaPipeline* _media_pipeline;
+    //std::array<std::unique_ptr<MediaPipeline>, 4> _media_pipelines;
+    QString _selected_stream_id;
+    QString _selected_session_id;
 public slots:
     void slot_loading_chat_user();
     void slot_side_chat();
@@ -66,6 +76,22 @@ public slots:
     void slot_item_clicked(QListWidgetItem *item);
     void slot_text_chat_msg(std::shared_ptr<TextChatMsg> msg);
     void slot_append_send_chat_msg(std::shared_ptr<TextChatData> msgdata);
+    void slot_media_stream_search();
+    void slot_media_create_session();
+    void slot_media_join_session();
+    void slot_media_stream_item_clicked(QListWidgetItem *item);
+    void slot_media_session_item_clicked(QListWidgetItem *item);
+    void slot_media_streams_updated(QJsonArray streams);
+    void slot_media_sessions_updated(QJsonArray sessions);
+    void slot_media_play_started(QString streamId, QString playUrl, QString sessionId);
+    void slot_media_play_stopped();
+    void slot_media_sync_play(QString streamId, QString playUrl, QString sessionId);
+    void slot_media_status(QString text);
+    void slot_player_ui_play_clicked();
+    void slot_player_ui_pause_clicked();
+    void slot_player_ui_stop_clicked();
+    void slot_player_ui_seek_changed(int value);
+    void slot_player_ui_volume_changed(int value);
 private slots:
 
 };

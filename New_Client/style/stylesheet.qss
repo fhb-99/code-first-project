@@ -806,3 +806,102 @@ ApplyFriendItem #addBtn[state='press'] {
  border-image: url(:/res/voice_chat_press.png);
 }
 
+
+/* =========================
+   Chat UI Refinement Layer
+   (append-only override)
+   ========================= */
+QDialog#ChatDialog {
+    background: #eef2f7;
+}
+
+#side_bar {
+    background-color: #252a34;
+    border-right: 1px solid #1e232d;
+}
+
+#chat_user_wid {
+    background: #f7f9fc;
+    border-right: 1px solid #dde3ee;
+}
+
+#search_wid {
+    background: #f7f9fc;
+    border-bottom: 1px solid #e3e8f1;
+}
+
+#search_edit {
+    background: #ffffff;
+    border: 1px solid #cfd7e6;
+    border-radius: 7px;
+    padding: 2px 8px;
+}
+
+#search_edit:focus {
+    border: 1px solid #5d79b3;
+}
+
+#chat_user_list,
+#search_list,
+#con_user_list {
+    background-color: #f7f9fc;
+    border: none;
+    outline: none;
+}
+
+#chat_user_list::item,
+#search_list::item,
+#con_user_list::item {
+    border: none;
+}
+
+#chat_user_list::item:hover,
+#search_list::item:hover,
+#con_user_list::item:hover {
+    background: #e9eef8;
+}
+
+#chat_user_list::item:selected,
+#search_list::item:selected,
+#con_user_list::item:selected {
+    background: #dce6f6;
+}
+
+#stackedWidget {
+    background: #ffffff;
+    border-left: 1px solid #e1e6ef;
+}
+
+#chat_page,
+#friend_apply_page,
+#friend_info_page,
+#media_player_page {
+    background: #ffffff;
+}
+
+/* Player left panel buttons feedback */
+#btn_stream_search,
+#btn_create_session,
+#btn_join_session {
+    background: #f7f9fc;
+    border: 1px solid #c9d3e4;
+    border-radius: 6px;
+    color: #1f2937;
+    padding: 4px 10px;
+}
+
+#btn_stream_search:hover,
+#btn_create_session:hover,
+#btn_join_session:hover {
+    background: #e7eefb;
+    border: 1px solid #9db5de;
+}
+
+#btn_stream_search:pressed,
+#btn_create_session:pressed,
+#btn_join_session:pressed {
+    background: #d7e3f8;
+    border: 1px solid #6f8fc4;
+    padding-top: 5px;
+    padding-left: 11px;
+}

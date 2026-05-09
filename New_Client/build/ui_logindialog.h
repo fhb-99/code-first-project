@@ -60,31 +60,31 @@ public:
     {
         if (LoginDialog->objectName().isEmpty())
             LoginDialog->setObjectName(QString::fromUtf8("LoginDialog"));
-        LoginDialog->resize(300, 500);
-        LoginDialog->setMinimumSize(QSize(300, 500));
-        LoginDialog->setMaximumSize(QSize(300, 500));
+        LoginDialog->resize(380, 620);
+        LoginDialog->setMinimumSize(QSize(380, 620));
+        LoginDialog->setMaximumSize(QSize(380, 620));
         verticalLayout_3 = new QVBoxLayout(LoginDialog);
         verticalLayout_3->setObjectName(QString::fromUtf8("verticalLayout_3"));
         verticalLayout_2 = new QVBoxLayout();
         verticalLayout_2->setObjectName(QString::fromUtf8("verticalLayout_2"));
-        verticalLayout_2->setContentsMargins(5, 5, 5, 5);
+        verticalLayout_2->setContentsMargins(10, 10, 10, 10);
         err_tip = new QLabel(LoginDialog);
         err_tip->setObjectName(QString::fromUtf8("err_tip"));
-        err_tip->setMinimumSize(QSize(0, 25));
-        err_tip->setMaximumSize(QSize(16777215, 25));
+        err_tip->setMinimumSize(QSize(0, 32));
+        err_tip->setMaximumSize(QSize(16777215, 32));
         err_tip->setAlignment(Qt::AlignCenter);
 
         verticalLayout_2->addWidget(err_tip);
 
         head_widget = new QWidget(LoginDialog);
         head_widget->setObjectName(QString::fromUtf8("head_widget"));
-        head_widget->setMinimumSize(QSize(200, 230));
+        head_widget->setMinimumSize(QSize(220, 255));
         gridLayout = new QGridLayout(head_widget);
         gridLayout->setObjectName(QString::fromUtf8("gridLayout"));
         head_label = new QLabel(head_widget);
         head_label->setObjectName(QString::fromUtf8("head_label"));
-        head_label->setMinimumSize(QSize(200, 200));
-        head_label->setMaximumSize(QSize(200, 200));
+        head_label->setMinimumSize(QSize(220, 220));
+        head_label->setMaximumSize(QSize(220, 220));
 
         gridLayout->addWidget(head_label, 1, 0, 1, 1);
 
@@ -99,15 +99,15 @@ public:
         horizontalLayout_2->setObjectName(QString::fromUtf8("horizontalLayout_2"));
         email_lb = new QLabel(LoginDialog);
         email_lb->setObjectName(QString::fromUtf8("email_lb"));
-        email_lb->setMinimumSize(QSize(0, 25));
-        email_lb->setMaximumSize(QSize(16777215, 25));
+        email_lb->setMinimumSize(QSize(0, 32));
+        email_lb->setMaximumSize(QSize(16777215, 32));
 
         horizontalLayout_2->addWidget(email_lb);
 
         email_edit = new QLineEdit(LoginDialog);
         email_edit->setObjectName(QString::fromUtf8("email_edit"));
-        email_edit->setMinimumSize(QSize(0, 25));
-        email_edit->setMaximumSize(QSize(16777215, 25));
+        email_edit->setMinimumSize(QSize(0, 32));
+        email_edit->setMaximumSize(QSize(16777215, 32));
 
         horizontalLayout_2->addWidget(email_edit);
 
@@ -122,15 +122,15 @@ public:
         horizontalLayout_3->setObjectName(QString::fromUtf8("horizontalLayout_3"));
         pass_label = new QLabel(LoginDialog);
         pass_label->setObjectName(QString::fromUtf8("pass_label"));
-        pass_label->setMinimumSize(QSize(0, 25));
-        pass_label->setMaximumSize(QSize(16777215, 25));
+        pass_label->setMinimumSize(QSize(0, 32));
+        pass_label->setMaximumSize(QSize(16777215, 32));
 
         horizontalLayout_3->addWidget(pass_label);
 
         pass_edit = new QLineEdit(LoginDialog);
         pass_edit->setObjectName(QString::fromUtf8("pass_edit"));
-        pass_edit->setMinimumSize(QSize(0, 25));
-        pass_edit->setMaximumSize(QSize(16777215, 25));
+        pass_edit->setMinimumSize(QSize(0, 32));
+        pass_edit->setMaximumSize(QSize(16777215, 32));
 
         horizontalLayout_3->addWidget(pass_edit);
 

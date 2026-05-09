@@ -12,6 +12,19 @@ LoginDialog::LoginDialog(QWidget *parent) :
     ui(new Ui::LoginDialog)
 {
     ui->setupUi(this);
+    setWindowTitle(tr("登录"));
+    setStyleSheet(
+        "QDialog#LoginDialog { background:#eef2f7; }"
+        "QLineEdit { background:#ffffff; border:1px solid #cfd6e2; border-radius:6px; padding:4px 8px; }"
+        "QLineEdit:focus { border:1px solid #5b78b3; }"
+        "QPushButton { background:#f7f9fc; border:1px solid #cfd6e2; border-radius:6px; padding:6px 12px; }"
+        "QPushButton:hover { background:#ebf0f8; }"
+        "QPushButton:pressed { background:#dee7f5; }"
+        "QLabel { color:#2f3a4a; }"
+        "QLabel#err_tip[state=\"err\"] { color:#d1495b; font-weight:600; }"
+        "QLabel#err_tip[state=\"normal\"] { color:#2f3a4a; }"
+        "ClickedLabel#forget_label { color:#4f6ea8; }"
+    );
     connect(ui->reg_btn, &QPushButton::clicked, this, &LoginDialog::switchRegister);
     ui->forget_label->SetState("normal","hover","","selected","selected_hover","");
     ui->forget_label->setCursor(Qt::PointingHandCursor);
@@ -85,6 +98,8 @@ void LoginDialog::initHttpHandlers()
         si.Host = jsonObj["host"].toString();
         si.Port = jsonObj["port"].toString();
         si.Token = jsonObj["token"].toString();
+        auto media_host = jsonObj["media_host"].toString();
+        auto media_port = jsonObj["media_port"].toString();
 
         _uid = si.Uid;
         _token = si.Token;
@@ -250,4 +265,3 @@ void LoginDialog::DelTipErr(TipErr te){
 
     showTip(_tip_errs.first(), false);
 }
-

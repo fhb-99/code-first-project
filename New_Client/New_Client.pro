@@ -1,13 +1,14 @@
-QT       += core gui network
+QT       += core gui network opengl
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-CONFIG += c++11
+CONFIG += c++17
 RC_ICONS = icon.ico
 
 INCLUDEPATH += \
     $$PWD/core \
     $$PWD/data \
+    $$PWD/media \
     $$PWD/net \
     $$PWD/ui \
     $$PWD/ui/dialogs \
@@ -15,16 +16,25 @@ INCLUDEPATH += \
     $$PWD/ui/pages \
     $$PWD/ui/widgets
 
+# FFmpeg 头文件（与 hplayer-master/3rd 目录结构一致：<libavcodec/...>）
+INCLUDEPATH += $$PWD/3rd/include
+
 # You can make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    core/framebuffer.cpp \
     core/global.cpp \
     data/userdata.cpp \
     data/usermgr.cpp \
     main.cpp \
     mainwindow.cpp \
+    media/decodepipeline.cpp \
+    media/mediapipeline.cpp \
+    media/sdlaudiooutput.cpp \
+    media/video_renderer_gl_qtwidget.cpp \
+    media/streamcontroller.cpp \
     net/httpmgr.cpp \
     net/tcpmgr.cpp \
     ui/dialogs/chatdialog.cpp \
@@ -69,11 +79,20 @@ SOURCES += \
     ui/widgets/timerbtn.cpp
 
 HEADERS += \
+    core/ffmpeg_util.h \
+    core/framebuffer.h \
     core/global.h \
     core/singleton.h \
     data/userdata.h \
     data/usermgr.h \
     mainwindow.h \
+    media/AVDecodeAbstract.h \
+    media/decodepipeline.h \
+    media/mediapipeline.h \
+    media/sdlaudiooutput.h \
+    media/streamcontroller.h \
+    media/video_renderer.h \
+    media/video_renderer_gl_qtwidget.h \
     net/httpmgr.h \
     net/tcpmgr.h \
     ui/dialogs/chatdialog.h \
@@ -243,4 +262,20 @@ CONFIG(debug, debug|release) {
      QMAKE_POST_LINK += xcopy /Y /E /I \"$$StaticDir\" \"$$OutputDir\\static\\\"
 }
 
-win32-msvc*:QMAKE_CXXFLAGS += /wd"4819" /utf-8
+win32-msvc* {
+    QMAKE_CXXFLAGS += /wd"4819" /utf-8
+    # FFmpeg 导入库（与 HPlayer 相同：msvc2015_x64，一般可被 VS2017 链接）
+    LIBS += -L$$PWD/3rd/lib/msvc2015_x64
+    LIBS += -lavformat -lavdevice -lavcodec -lswresample -lswscale -lavutil
+    # SDL2（头文件在 $$PWD/3rd/include/SDL2，运行时请将 SDL2.dll 放入 ffmpeg_runtime 一并拷出）
+    LIBS += -lSDL2
+    LIBS += -lopengl32 -lglu32
+    # 将 FFmpeg 运行库拷到 exe 同级：把下列 DLL 放入本目录下 ffmpeg_runtime/（见说明）
+    exists($$PWD/ffmpeg_runtime) {
+        FFMPEG_RT = $$PWD/ffmpeg_runtime
+        FFMPEG_RT = $$replace(FFMPEG_RT, /, \\)
+        OutDllDir = $$OUT_PWD/$$DESTDIR
+        OutDllDir = $$replace(OutDllDir, /, \\)
+        QMAKE_POST_LINK += xcopy /Y /Q \"$$FFMPEG_RT\\*.dll\" \"$$OutDllDir\\\" &
+    }
+}

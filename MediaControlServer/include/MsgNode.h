@@ -28,8 +28,11 @@ public:
 };
 
 
+class LogicSystem;
+
 class RecvNode : public MsgNode
 {
+    friend class LogicSystem;
 public:
     RecvNode(short len, short msg_id);
     ~RecvNode() = default;
@@ -39,8 +42,9 @@ private:
 
 class SendNode : public MsgNode
 {
+    friend class LogicSystem;
 public:
-    SendNode(short len, short msg_id);
+    SendNode(char* msg, short max_len, short msg_id);
     ~SendNode() = default;
 private:
     short m_msg_id;

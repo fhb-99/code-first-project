@@ -1,5 +1,6 @@
 #include "LogicSystem.h"
 
+#include <functional>
 #include <iostream>
 
 
@@ -26,8 +27,8 @@ LogicSystem::~LogicSystem()
 
 void LogicSystem::RegisterCallBacks()
 {
-    // TODO(MediaControlServer): 按业务协议定义 short msg_id 常量后，在此注册 FunCallBack。
-    // 示例：_fun_callbacks[MSG_MEDIA_XXX] = std::bind(&LogicSystem::SomeHandler, this, ...);
+    _fun_callbacks[ID_MEDIA_LIST_REQ] = std::bind(&LogicSystem::MediaListHandler, this,
+        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 }
 
 void LogicSystem::PostMsgToQue(std::shared_ptr<LogicNode> msg)
@@ -84,4 +85,11 @@ void LogicSystem::DealMsg()
             std::string(msg_node->_recvnode->data, msg_node->_recvnode->m_cur_len));
         _msg_que.pop();
     }
+}
+
+
+
+void LogicSystem::MediaListHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
+{
+
 }

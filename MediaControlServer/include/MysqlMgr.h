@@ -116,6 +116,9 @@ public:
     bool GetApplyList(int touid, std::vector<std::shared_ptr<ApplyInfo>>& applyList, int offset, int limit);
     bool GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo>>& user_info_list);
 
+    //处理音视频
+    
+
     
 private:
     std::unique_ptr<MysqlPool> pool_;

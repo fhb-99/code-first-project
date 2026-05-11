@@ -17,6 +17,14 @@ void LogicSystem::RegisterCallBacks()
 {
     _fun_callbacks[MSG_CHAT_LOGIN] = std::bind(&LogicSystem::LoginHandler, this,
         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+    _fun_callbacks[ID_SEARCH_USER_REQ] = std::bind(&LogicSystem::SearchInfo, this,
+        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+    _fun_callbacks[ID_ADD_FRIEND_REQ] = std::bind(&LogicSystem::AddFriendApply, this,
+        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+    _fun_callbacks[ID_AUTH_FRIEND_REQ] = std::bind(&LogicSystem::AuthFriendApply, this,
+        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+    _fun_callbacks[ID_TEXT_CHAT_MSG_REQ] = std::bind(&LogicSystem::DealChatTextMsg, this,
+        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 }
 
 void LogicSystem::PostMsgToQue(std::shared_ptr<LogicNode> msg)
@@ -271,7 +279,7 @@ void LogicSystem::SearchInfo(std::shared_ptr<CSession> session, const short& msg
 
     Defer defer([this, &rtvalue, session](){
         std::string return_str = rtvalue.toStyledString();
-        session->Send(return_str, MSG_CHAT_LOGIN_RSP);
+        session->Send(return_str, ID_SEARCH_USER_RSP);
     });
 
     bool b_digit = isPureDigit(uid_str);
@@ -480,7 +488,7 @@ void LogicSystem::AddFriendApply(std::shared_ptr<CSession> session, const short&
     if(to_ip_value == self_name)
     {
         //说明两端都连在同一服务器上
-        auto session = UserMgr::GetInstance()->GetSession(uid);
+        auto session = UserMgr::GetInstance()->GetSession(touid);
         if(session)
         {
             Json::Value  notify;

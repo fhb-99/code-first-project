@@ -1,6 +1,7 @@
 #pragma once
 
 #include "global.h"
+#include "data.h"
 #include <mysql/mysql.h>
 #include <mysql/mysql_time.h>
 #include <mysql/my_command.h>
@@ -116,9 +117,10 @@ public:
     bool GetApplyList(int touid, std::vector<std::shared_ptr<ApplyInfo>>& applyList, int offset, int limit);
     bool GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo>>& user_info_list);
 
-    //处理音视频
-    
-
+    //获取媒体列表
+    bool GetMediaList(int uid, std::vector<std::shared_ptr<MediaListInfo>>& media_list);
+    //获取媒体播放的session_id和session_name
+    bool GetSessionInfo(int uid, std::string& session_id, std::string& session_name);
     
 private:
     std::unique_ptr<MysqlPool> pool_;

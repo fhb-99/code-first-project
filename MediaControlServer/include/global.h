@@ -49,6 +49,8 @@ enum ReqID
     ID_MEDIA_CREATE_SESSION_RSP = 1034, //创建媒体会话回包
     ID_MEDIA_JOIN_SESSION_REQ = 1035, //加入媒体会话请求
     ID_MEDIA_JOIN_SESSION_RSP = 1036, //加入媒体会话回包
+    ID_MEDIA_PAUSE_REQ = 1037, //媒体暂停请求（与 New_Client 1026+ 编号对齐后追加）
+    ID_MEDIA_PAUSE_RSP = 1038, //媒体暂停回包
 };
 
 

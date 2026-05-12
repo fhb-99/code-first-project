@@ -6,6 +6,7 @@
 #include "Singleton.h"
 #include "CSession.h"
 #include "MsgNode.h"
+#include "data.h"
 
 typedef std::function<void(std::shared_ptr<CSession>, const short& msg_id, const std::string& msg_data)> FunCallBack;
 
@@ -21,6 +22,8 @@ private:
 
     void DealMsg();
     void RegisterCallBacks();
+
+    void MediaListHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
 
     std::thread _worker_thread;
     std::queue<std::shared_ptr<LogicNode>> _msg_que;

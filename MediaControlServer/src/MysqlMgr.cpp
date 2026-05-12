@@ -517,3 +517,82 @@ bool MysqlMgr::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo>>
 	}
 	
 }
+
+
+
+bool MysqlMgr::GetMediaList(int uid, std::vector<std::shared_ptr<MediaListInfo>>& media_list)
+{
+	auto con = pool_->getConnection();
+	if (con == nullptr) {
+		return false;
+	}
+
+	Defer defer([this, &con]() {
+		pool_->returnConnection(std::move(con));
+	});
+
+	try
+	{
+		std::unique_ptr<sql::PreparedStatement> pstmt(
+			con->_con->prepareStatement(
+				"SELECT id, stream_id, name, url, source_type, status, owner_uid AS owner_id "
+				"FROM media_stream WHERE owner_uid = ? AND status = 1 ORDER BY id ASC"));
+		pstmt->setInt(1, uid);
+		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+		while (res->next())
+		{
+			auto media_info = std::make_shared<MediaListInfo>();
+			media_info->id = static_cast<int>(res->getUInt64("id"));
+			media_info->stream_id = res->getString("stream_id");
+			media_info->name = res->getString("name");
+			media_info->url = res->getString("url");
+			media_info->source_type = res->getInt("source_type");
+			media_info->status = res->getInt("status");
+			media_info->owner_id = res->getInt("owner_id");
+			media_list.push_back(media_info);
+		}
+		return true;
+	}
+	catch (sql::SQLException& e)
+	{
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}
+
+
+bool MysqlMgr::GetSessionInfo(int uid, std::string& session_id, std::string& session_name)
+{
+	auto con = pool_->getConnection();
+	if(con == nullptr)
+	{
+		return false;
+	}
+
+	Defer defer([this, &con](){
+		pool_->returnConnection(std::move(con));
+	});
+
+	try
+	{
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement("SELECT session_id, session_name FROM session WHERE uid = ?"));
+		pstmt->setInt(1, uid);
+		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+		if(res->next())
+		{
+			session_id = res->getString("stream_id");
+			session_name = res->getString("session_name");
+			return true;
+		}
+		return false;
+	}
+	catch(sql::SQLException& e)
+	{
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}

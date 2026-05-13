@@ -1,5 +1,6 @@
 #include "LogicSystem.h"
 #include "MysqlMgr.h"
+#include "RedisMgr.h"
 
 #include <functional>
 #include <iostream>
@@ -120,33 +121,40 @@ void LogicSystem::MediaListHandler(std::shared_ptr<CSession> session, const shor
         session->Send(return_str, ID_MEDIA_LIST_RSP);
     });
 
-    std::vector<std::shared_ptr<MediaListInfo>> media_list;
-    const bool success = MysqlMgr::GetInstance()->GetMediaList(uid, media_list);
-    if (!success)
+    //这里可以先查询redis当中是否存在media_play_info，如果存在，则直接返回
+    std::string media_play_info;
+    bool flag = RedisMgr::GetInstance()->HGet("media_play_info" + std::to_string(uid), media_play_info);
+    if (flag)
     {
-        rtvalue["error"] = ErrorCodes::Error_Json;
+        rtvalue["error"] = ErrorCodes::Success;
+        rtvalue["media_play_info"] = media_play_info;
         return;
     }
-
-    for (auto& media : media_list)
+    else
     {
-        Json::Value media_info;
-        media_info["id"] = media->id;
-        media_info["stream_id"] = media->stream_id;
-        media_info["name"] = media->name;
-        media_info["url"] = media->url;
-        media_info["source_type"] = media->source_type;
-        media_info["status"] = media->status;
-        media_info["owner_id"] = media->owner_id;
-        rtvalue["media_list"].append(media_info);
-    }
+        //如果redis当中不存在，则查询数据库
+        std::vector<std::shared_ptr<MediaListInfo>> media_list;
+        const bool success = MysqlMgr::GetInstance()->GetMediaList(uid, media_list);
+        if (!success)
+        {
+            rtvalue["error"] = ErrorCodes::Error_Json;
+            return;
+        }
+        for (auto& media : media_list)
+        {
+            Json::Value media_info;
+            media_info["id"] = media->id;
+            media_info["stream_id"] = media->stream_id;
+            media_info["name"] = media->name;
+            media_info["url"] = media->url;
+            rtvalue["media_list"].append(media_info);
+        }
+    }   
 }
-
-
 
 void LogicSystem::MediaPlayHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
 {
-    Josn::Reader reader;
+    Json::Reader reader;
     Json::Value root;
     if (!reader.parse(msg_data, root) || !root.isObject())
     {
@@ -156,14 +164,15 @@ void LogicSystem::MediaPlayHandler(std::shared_ptr<CSession> session, const shor
         return;
     }
 
+    Json::Value rtvalue;
+    rtvalue["error"] = ErrorCodes::Success;
     Defer defer([this, &rtvalue, session]() {
         std::string return_str = rtvalue.toStyledString();
         session->Send(return_str, ID_MEDIA_PLAY_RSP);
     });
 
     //根据客户端传来的要播放的url，uid以及stream_id，
-    // 在数据库中查询session_id(暂时读取房间名（也就是sessin_id）），还有对应的session_name,
-    // 暂时先这样，后续再优化
+    // 在数据库中查询session_id；迁移脚本无 session 表，来自 media_client_playing（无记录则失败，需先写入播放会话）
     const int uid = root["uid"].asInt();
     const std::string url = root["url"].asString();
     const std::string stream_id = root["stream_id"].asString();
@@ -173,23 +182,28 @@ void LogicSystem::MediaPlayHandler(std::shared_ptr<CSession> session, const shor
     bool success = MysqlMgr::GetInstance()->GetSessionInfo(uid, session_id, session_name);
     if (!success)
     {
-        Json::Value err;
-        err["error"] = ErrorCodes::Error_Json;
-        session->Send(err.toStyledString(), ID_MEDIA_PLAY_RSP);
+        rtvalue["error"] = ErrorCodes::Error_Json;
         return;
     }
 
-    Json::Value rtvalue;
-    rtvalue["error"] = ErrorCodes::Success;
     rtvalue["session_id"] = session_id;
     rtvalue["session_name"] = session_name;
-    
+
+    //存入到redis当中
+    bool flag = RedisMgr::GetInstance()->HSet("media_play_info" + std::to_string(uid), session_id, url);
+    if (!flag)
+    {
+        rtvalue["error"] = ErrorCodes::Error_Redis;
+        return;
+    }
+
+    rtvalue["error"] = ErrorCodes::Success;
 }
 
 
 void LogicSystem::MediaStopHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
 {
-
+    
 }
 
 void LogicSystem::MediaPauseHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)

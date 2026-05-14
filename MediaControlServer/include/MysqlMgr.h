@@ -1,6 +1,7 @@
 #pragma once
 
 #include "global.h"
+#include "data.h"
 #include <mysql/mysql.h>
 #include <mysql/mysql_time.h>
 #include <mysql/my_command.h>
@@ -39,8 +40,9 @@ public:
             }
         }
         catch (sql::SQLException& e) {
-            // 处理异常
-            std::cout << "mysql pool init failed" << std::endl;
+            std::cerr << "MysqlPool init SQLException: " << e.what()
+                      << " (code=" << e.getErrorCode() << ", SQLState=" << e.getSQLState() << ")"
+                      << std::endl;
         }
     }
 
@@ -116,7 +118,19 @@ public:
     bool GetApplyList(int touid, std::vector<std::shared_ptr<ApplyInfo>>& applyList, int offset, int limit);
     bool GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo>>& user_info_list);
 
-    
+    //获取媒体列表
+    bool GetMediaList(int uid, std::vector<std::shared_ptr<MediaListInfo>>& media_list);
+    //获取媒体播放流的stream_id
+    bool GetStreamInfo(int uid, std::string& stream_id);
+
+    // 更新 media_client_playing.state（与 db/mysql_media_migration.sql 一致）
+    bool UpdateMediaPlayStatus(int uid, std::string& session_id, std::string& stream_id, int state);
+    // 写入media_client_playing表
+    bool InsertMediaClientPlaying(int uid, std::string& session_id, std::string& stream_id, int state);
+    //当客户端播放视频时，会创建一个session_id,插入到media_session_stream表当中
+    bool InsertMediaSessionStream(int uid, std::string& session_id, std::string& stream_id);
+    //同时，当有客户端进入房间时，并且播放的是同一个流时，要维护在线人数信息
+    bool UpdateMediaSessionOnlineCount(int uid, std::string& session_id, std::string& stream_id, int online_count);
 private:
     std::unique_ptr<MysqlPool> pool_;
 };

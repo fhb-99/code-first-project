@@ -176,18 +176,24 @@ void LogicSystem::MediaPlayHandler(std::shared_ptr<CSession> session, const shor
     const int uid = root["uid"].asInt();
     const std::string url = root["url"].asString();
     const std::string stream_id = root["stream_id"].asString();
-
-    std::string session_id;
-    std::string session_name;
-    bool success = MysqlMgr::GetInstance()->GetSessionInfo(uid, session_id, session_name);
-    if (!success)
+    const std::string session_id = rot["session_id"].asString();
+    
+    //更新media_session_stream表与media_client_playing表
+    bool success = MysqlMgr::GetInstance()->InsertMediaSessionStream(uid, session_id, stream_id, 1);
+    bool success2 = MysqlMgr::GetInstance()->InsertMediaClientPlaying(uid, session_id, stream_id, 1);
+    if (!success || !success2)
     {
         rtvalue["error"] = ErrorCodes::Error_Json;
         return;
     }
-
-    rtvalue["session_id"] = session_id;
-    rtvalue["session_name"] = session_name;
+    
+    //更新完后，在线人数加一
+    bool success3 = MysqlMgr::GetInstance()->UpdateMediaSessionOnlineCount(uid, session_id, stream_id, true);
+    if (!success3)
+    {
+        rtvalue["error"] = ErrorCodes::Error_Json;
+        return;
+    }
 
     //存入到redis当中
     bool flag = RedisMgr::GetInstance()->HSet("media_play_info" + std::to_string(uid), session_id, url);
@@ -203,10 +209,46 @@ void LogicSystem::MediaPlayHandler(std::shared_ptr<CSession> session, const shor
 
 void LogicSystem::MediaStopHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
 {
-    
+    Json::Reader reader;
+    Json::Value root;
+    reader.parse(msg_data, root);
+    const int uid = root["uid"].asInt();
+    const std::string session_id = root["session_id"].asString();
+    const std::string stream_id = root["stream_id"].asString();
+
+    //更新media_session_stream表与media_client_playing表
+    bool success = MysqlMgr::GetInstance()->InsertMediaSessionStream(uid, session_id, stream_id, 0);
+    bool success2 = MysqlMgr::GetInstance()->InsertMediaClientPlaying(uid, session_id, stream_id, 0);
+    if (!success || !success2)
+    {
+        rtvalue["error"] = ErrorCodes::Error_Json;
+        return;
+    }
+
+    //更新完后，在线人数减一
+    bool success3 = MysqlMgr::GetInstance()->UpdateMediaSessionOnlineCount(uid, session_id, stream_id, false);
+    if (!success3)
+    {
+        rtvalue["error"] = ErrorCodes::Error_Json;
+        return;
+    }
+
+    //从redis当中删除
+    bool flag = RedisMgr::GetInstance()->HDel("media_play_info" + std::to_string(uid), session_id);
+    if (!flag)
+    {
+        rtvalue["error"] = ErrorCodes::Error_Redis;
+        return;
+    }
+
+    rtvalue["error"] = ErrorCodes::Success;
+    Defer defer([this, &rtvalue, session]() {
+        std::string return_str = rtvalue.toStyledString();
+        session->Send(return_str, ID_MEDIA_STOP_RSP);
+    });
 }
 
 void LogicSystem::MediaPauseHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
 {
-
+    //好像业务上不需要
 }

@@ -668,8 +668,7 @@ bool MysqlMgr::InsertMediaClientPlaying(int uid, std::string& session_id, std::s
 }
 
 
-//直接让count+1
-bool MysqlMgr::UpdateMediaSessionOnlineCount(int uid, std::string& session_id, std::string& stream_id, int online_count)
+bool MysqlMgr::InsertMediaSessionStream(int uid, std::string& session_id, std::string& stream_id, int satte)
 {
 	auto con = pool_->getConnection();
 	if(con == nullptr)
@@ -684,10 +683,57 @@ bool MysqlMgr::UpdateMediaSessionOnlineCount(int uid, std::string& session_id, s
 	try
 	{
 		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement(
-			"UPDATE media_session_stream SET online_count = online_count + 1 WHERE session_id = ? AND stream_id = ? "
+			"INSERT INTO media_session_stream (session_id, uid, stream_id, state) VALUES (?, ?, ?, ?) "
+			"ON DUPLICATE KEY UPDATE stream_id = VALUES(stream_id), state = VALUES(state)"));
 		pstmt->setString(1, session_id);
-		pstmt->setString(2, stream_id);	
+		pstmt->setInt(2, uid);
+		pstmt->setString(3, stream_id);
+		pstmt->setInt(4, state);
 		pstmt->executeUpdate();
+
+		return true;
+	}
+	catch(sql::SQLException& e)
+	{
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}
+
+
+//加个判断位，true，count+1，false，count-1
+bool MysqlMgr::UpdateMediaSessionOnlineCount(int uid, std::string& session_id, std::string& stream_id, bool is_add)
+{
+	auto con = pool_->getConnection();
+	if(con == nullptr)
+	{
+		return false;
+	}
+
+	Defer defer([this, &con](){
+		pool_->returnConnection(std::move(con));
+	});
+
+	try
+	{
+		if(is_add)
+		{
+			std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement(
+				"UPDATE media_session_stream SET online_count = online_count + 1 WHERE session_id = ? AND stream_id = ? "))
+			pstmt->setString(1, session_id);
+			pstmt->setString(2, stream_id);
+			pstmt->executeUpdate();
+		}
+		else
+		{
+			std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement(
+				"UPDATE media_session_stream SET online_count = online_count - 1 WHERE session_id = ? AND stream_id = ? "))
+			pstmt->setString(1, session_id);
+			pstmt->setString(2, stream_id);
+			pstmt->executeUpdate();
+		}
 		return true;
 	}
 	catch(sql::SQLException& e)

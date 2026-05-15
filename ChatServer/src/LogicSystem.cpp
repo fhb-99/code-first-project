@@ -465,7 +465,7 @@ void LogicSystem::AddFriendApply(std::shared_ptr<CSession> session, const short&
         session->Send(return_str, ID_ADD_FRIEND_RSP);
     });
 
-    //数据库操作  todo
+    //数据库操作 
     MysqlMgr::GetInstance()->AddFriendApply(uid, touid);
 
     //从redis中获取目标服务器的ip

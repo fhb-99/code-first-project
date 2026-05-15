@@ -3,8 +3,9 @@
 #include "global.h"
 #include "CServer.h"
 #include "MsgNode.h"
+#include "Singleton.h"
 
-class CSession : public std::enable_shared_from_this<CSession>
+class CSession : public Singleton<CSession>, public std::enable_shared_from_this<CSession>
 {
 public:
     CSession(boost::asio::io_context& io_context, CServer * server);
@@ -22,10 +23,10 @@ public:
     void Send(char* msg,  short max_length, short msgid);
 	void Send(std::string msg, short msgid);
 private:
-    void asyncReadFull(std::size_t length, 
-            std::function<void(boost::system::error_code& error, std::size_t bytes_transfered)>handler);
-    void asyncReadLen(std::size_t read_len, std::size_t total_len, 
-            std::function<void(boost::system::error_code& error, std::size_t bytes_transfered)>handler);
+    void asyncReadFull(std::size_t length,
+            std::function<void(const boost::system::error_code&, std::size_t bytes_transfered)> handler);
+    void asyncReadLen(std::size_t read_len, std::size_t total_len,
+            std::function<void(const boost::system::error_code&, std::size_t bytes_transfered)> handler);
 
     void HandleWrite(const boost::system::error_code& error, std::shared_ptr<CSession> shared_self);
 

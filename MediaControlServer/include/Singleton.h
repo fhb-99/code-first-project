@@ -1,3 +1,5 @@
+#pragma once
+
 #include "global.h"
 
 template <typename T>
@@ -10,7 +12,7 @@ public:
     {
         static std::once_flag s_flag;
         std::call_once(s_flag, [&](){
-            m_instance = std::make_shared<T>();
+            m_instance = std::shared_ptr<T>(new T());
         });
         return m_instance;
     }

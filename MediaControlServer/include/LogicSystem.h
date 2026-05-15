@@ -24,6 +24,9 @@ private:
     void RegisterCallBacks();
 
     void MediaListHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
+    void MediaPlayHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
+    void MediaStopHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
+    void MediaPauseHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
 
     std::thread _worker_thread;
     std::queue<std::shared_ptr<LogicNode>> _msg_que;

@@ -102,6 +102,7 @@ void LogicSystem::DealMsg()
 
 void LogicSystem::MediaListHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
 {
+    (void)msg_id;
     Json::Value root;
     Json::Reader reader;
     if (!reader.parse(msg_data, root) || !root.isObject())
@@ -121,10 +122,10 @@ void LogicSystem::MediaListHandler(std::shared_ptr<CSession> session, const shor
         session->Send(return_str, ID_MEDIA_LIST_RSP);
     });
 
-    //这里可以先查询redis当中是否存在media_play_info，如果存在，则直接返回
-    std::string media_play_info;
-    bool flag = RedisMgr::GetInstance()->HGet("media_play_info" + std::to_string(uid), media_play_info);
-    if (flag)
+    // Hash key：media_play_info<uid>；列表快速路径读取字段 _last_url（与 MediaPlayHandler 写入一致）
+    const std::string redisKey = "media_play_info" + std::to_string(uid);
+    const std::string media_play_info = RedisMgr::GetInstance()->HGet(redisKey, "_last_url");
+    if (!media_play_info.empty())
     {
         rtvalue["error"] = ErrorCodes::Success;
         rtvalue["media_play_info"] = media_play_info;
@@ -154,6 +155,7 @@ void LogicSystem::MediaListHandler(std::shared_ptr<CSession> session, const shor
 
 void LogicSystem::MediaPlayHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
 {
+    (void)msg_id;
     Json::Reader reader;
     Json::Value root;
     if (!reader.parse(msg_data, root) || !root.isObject())
@@ -176,7 +178,7 @@ void LogicSystem::MediaPlayHandler(std::shared_ptr<CSession> session, const shor
     const int uid = root["uid"].asInt();
     const std::string url = root["url"].asString();
     const std::string stream_id = root["stream_id"].asString();
-    const std::string session_id = rot["session_id"].asString();
+    const std::string session_id = root["session_id"].asString();
     
     //更新media_session_stream表与media_client_playing表
     bool success = MysqlMgr::GetInstance()->InsertMediaSessionStream(uid, session_id, stream_id, 1);
@@ -195,8 +197,13 @@ void LogicSystem::MediaPlayHandler(std::shared_ptr<CSession> session, const shor
         return;
     }
 
-    //存入到redis当中
-    bool flag = RedisMgr::GetInstance()->HSet("media_play_info" + std::to_string(uid), session_id, url);
+    //存入到redis当中（主字段为 session_id；_last_url 供媒体列表快速路径）
+    const std::string redisKey = "media_play_info" + std::to_string(uid);
+    bool flag = RedisMgr::GetInstance()->HSet(redisKey, session_id, url);
+    if (flag)
+    {
+        (void)RedisMgr::GetInstance()->HSet(redisKey, "_last_url", url);
+    }
     if (!flag)
     {
         rtvalue["error"] = ErrorCodes::Error_Redis;
@@ -209,9 +216,24 @@ void LogicSystem::MediaPlayHandler(std::shared_ptr<CSession> session, const shor
 
 void LogicSystem::MediaStopHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
 {
+    (void)msg_id;
     Json::Reader reader;
     Json::Value root;
-    reader.parse(msg_data, root);
+    if (!reader.parse(msg_data, root) || !root.isObject())
+    {
+        Json::Value err;
+        err["error"] = ErrorCodes::Error_Json;
+        session->Send(err.toStyledString(), ID_MEDIA_STOP_RSP);
+        return;
+    }
+
+    Json::Value rtvalue;
+    rtvalue["error"] = ErrorCodes::Success;
+    Defer defer([this, &rtvalue, session]() {
+        std::string return_str = rtvalue.toStyledString();
+        session->Send(return_str, ID_MEDIA_STOP_RSP);
+    });
+
     const int uid = root["uid"].asInt();
     const std::string session_id = root["session_id"].asString();
     const std::string stream_id = root["stream_id"].asString();
@@ -233,22 +255,18 @@ void LogicSystem::MediaStopHandler(std::shared_ptr<CSession> session, const shor
         return;
     }
 
-    //从redis当中删除
-    bool flag = RedisMgr::GetInstance()->HDel("media_play_info" + std::to_string(uid), session_id);
-    if (!flag)
-    {
-        rtvalue["error"] = ErrorCodes::Error_Redis;
-        return;
-    }
+    //从 redis 删除会话字段与列表缓存字段（失败不阻断，DB 已更新）
+    const std::string redisKey = "media_play_info" + std::to_string(uid);
+    (void)RedisMgr::GetInstance()->HDel(redisKey, session_id);
+    (void)RedisMgr::GetInstance()->HDel(redisKey, "_last_url");
 
     rtvalue["error"] = ErrorCodes::Success;
-    Defer defer([this, &rtvalue, session]() {
-        std::string return_str = rtvalue.toStyledString();
-        session->Send(return_str, ID_MEDIA_STOP_RSP);
-    });
 }
 
 void LogicSystem::MediaPauseHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
 {
+    (void)session;
+    (void)msg_id;
+    (void)msg_data;
     //好像业务上不需要
 }

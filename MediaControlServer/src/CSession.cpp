@@ -10,7 +10,7 @@ CSession::CSession(boost::asio::io_context& io_context, CServer * server)
       m_parse_head(false)
 {
     boost::uuids::uuid uid = boost::uuids::random_generator()();
-    m_session_id = static_cast<int>(boost::uuids::to_string(uid));
+    m_session_id = boost::uuids::to_string(uid);
     m_msg_node = std::make_shared<MsgNode>(HEAD_TOTAL_LEN, 0);
 }
 
@@ -38,7 +38,7 @@ void CSession::Start()
 
 std::shared_ptr<CSession> CSession::SharedSelf()
 {
-    return std::shared_from_this();
+    return this->shared_from_this();
 }
 
 
@@ -50,8 +50,8 @@ void CSession::Close()
 
 void CSession::AsyncReadHead(int length)
 {
-    auto self = std::shared_from_this();
-    asyncReadFull(length, [self, this](boost::system::error_code& error, std::size_t bytes_transfered){
+    auto self = shared_from_this();
+    asyncReadFull(length, [self, this, length](const boost::system::error_code& error, std::size_t bytes_transfered){
         try
         {
             if(error)
@@ -62,7 +62,7 @@ void CSession::AsyncReadHead(int length)
                 return;
             }
 
-            if(bytes_transfered < length)
+            if(bytes_transfered < static_cast<std::size_t>(length))
             {
                 std::cout << "handle read failed, error is " << error.message() << std::endl;
                 Close();
@@ -114,8 +114,8 @@ void CSession::AsyncReadHead(int length)
 
 void CSession::AsyncReadBody(int length)
 {
-    auto self = std::shared_from_this();
-    asyncReadFull(length, [self, this](boost::system::error_code& error, std::size_t bytes_transfered){
+    auto self = shared_from_this();
+    asyncReadFull(length, [self, this, length](const boost::system::error_code& error, std::size_t bytes_transfered){
         try 
         {
             if (error) 
@@ -126,7 +126,7 @@ void CSession::AsyncReadBody(int length)
                 return;
             }
 
-            if (bytes_transfered < length) 
+            if (bytes_transfered < static_cast<std::size_t>(length)) 
             {
                 std::cout << "read length not match, read [" << bytes_transfered << "] , total ["
                     << length<<"]" << std::endl;
@@ -150,21 +150,20 @@ void CSession::AsyncReadBody(int length)
 }
 
 
-void CSession::asyncReadFull(std::size_t length, std::function<void(boost::system::error_code& error, std::size_t bytes_transfered)>handler)
+void CSession::asyncReadFull(std::size_t length, std::function<void(const boost::system::error_code&, std::size_t bytes_transfered)> handler)
 {
     memset(m_data, 0, MAX_LENGTH);
     asyncReadLen(0, length, handler);
 }
 
 
-void CSession::asyncReadLen(std::size_t read_len, std::size_t total_len, std::function<void(boost::system::error_code& error, std::size_t bytes_transfered)>handler)
+void CSession::asyncReadLen(std::size_t read_len, std::size_t total_len, std::function<void(const boost::system::error_code&, std::size_t bytes_transfered)> handler)
 {
-    auto self = std::shared_from_this();
-    m_socket.async_read_some(boost::asio::buffer(m_data + read_len, total_len - read_len), 
-    [read_len, total_len, handler, self](boost::system::error_code& error, std::size_t bytes_transfered){
-        if(error) 
+    auto self = shared_from_this();
+    m_socket.async_read_some(boost::asio::buffer(m_data + read_len, total_len - read_len),
+        [read_len, total_len, handler, self](const boost::system::error_code& error, std::size_t bytes_transfered) {
+        if(error)
         {
-            //出现错误，直接执行回调
             handler(error, bytes_transfered + read_len);
             return;
         }
@@ -179,7 +178,7 @@ void CSession::asyncReadLen(std::size_t read_len, std::size_t total_len, std::fu
 }
 
 
-void Send(char* msg,  short max_length, short msgid)
+void CSession::Send(char* msg,  short max_length, short msgid)
 {
     std::lock_guard<std::mutex> lock(send_mutex);
     int send_queue_size = send_que.size();
@@ -202,7 +201,7 @@ void Send(char* msg,  short max_length, short msgid)
 }
 
 
-void Send(std::string msg, short msgid)
+void CSession::Send(std::string msg, short msgid)
 {
     std::lock_guard<std::mutex> lock(send_mutex);
     int send_queue_size = send_que.size();
@@ -225,7 +224,7 @@ void Send(std::string msg, short msgid)
 }
 
 
-void HandleWrite(const boost::system::error_code& error, std::shared_ptr<CSession> shared_self)
+void CSession::HandleWrite(const boost::system::error_code& error, std::shared_ptr<CSession> shared_self)
 {
     try
     {   

@@ -44,7 +44,7 @@ class SendNode : public MsgNode
 {
     friend class LogicSystem;
 public:
-    SendNode(char* msg, short max_len, short msg_id);
+    SendNode(const char* msg, short max_len, short msg_id);
     ~SendNode() = default;
 private:
     short m_msg_id;

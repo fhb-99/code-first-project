@@ -1,6 +1,8 @@
 #pragma once
 
 #include "global.h"
+#include "Singleton.h"
+#include "ConfigMgr.h"
 #include <sw/redis++/redis++.h>
 
 

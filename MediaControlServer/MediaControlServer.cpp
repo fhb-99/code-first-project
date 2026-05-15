@@ -11,13 +11,19 @@
 int main()
 {
     auto& cfg = ConfigMgr::Inst();
-    auto server_name = cfg["SelfServer"]["Name"];
+    // 与 conf/config.ini 中 [MediaControlServer] 段一致
+    auto server_name = cfg["MediaControlServer"]["Name"];
+    (void)server_name;
     auto pool = AsioIOServicePool::GetInstance();
 
     try
     {
-        const std::string host = cfg["SelfServer"]["Host"];
-        const std::string port_str = cfg["SelfServer"]["Port"];
+        const std::string port_str = cfg["MediaControlServer"]["Port"];
+        if (port_str.empty())
+        {
+            std::cerr << "Config error: [MediaControlServer] Port is missing or empty." << std::endl;
+            return -1;
+        }
         unsigned short listen_port = static_cast<unsigned short>(std::stoi(port_str));
 
         boost::asio::io_context io_context;

@@ -1,10 +1,12 @@
-#ifndef USERDATA_H
+﻿#ifndef USERDATA_H
 #define USERDATA_H
 #include <QString>
 #include <memory>
 #include <QJsonArray>
 #include <vector>
 #include <QJsonObject>
+#include <string>
+#include <cstdint>
 
 class SearchInfo {
 public:
@@ -171,6 +173,109 @@ struct TextChatMsg{
     int _to_uid;
     int _from_uid;
     std::vector<std::shared_ptr<TextChatData>> _chat_msgs;
+};
+enum class StreamSourceType : std::uint8_t {
+    Unknown = 0,
+    Rtsp = 1,
+    Hls = 2,
+    File = 3,
+    Http = 4
+};
+
+enum class StreamCodecType : std::uint8_t {
+    Unknown = 0,
+    H264 = 1,
+    H265 = 2,
+    Aac = 3,
+    Opus = 4
+};
+
+enum class PlayState : std::uint8_t {
+    Idle = 0,
+    Playing = 1,
+    Paused = 2,
+    Buffering = 3,
+    Stopped = 4
+};
+
+enum class ControlCommandType : std::uint8_t {
+    Unknown = 0,
+    Play = 1,
+    Stop = 2,
+    Switch = 3,
+    Layout = 4,
+    Pause = 5,
+    Resume = 6,
+    Seek = 7,
+    Volume = 8
+};
+
+enum class SyncScope : std::uint8_t {
+    Local = 0,
+    Session = 1
+};
+
+// 播放器相关的数据封装
+struct StreamInfo {
+    StreamInfo() = default;
+    StreamInfo(std::string s_id, std::string name_, std::string url_, std::string type_, std::string codec_)
+        : streamId(std::move(s_id)), name(std::move(name_)), url(std::move(url_)),
+          sourceTypeStr(std::move(type_)), codecStr(std::move(codec_))
+    {}
+
+    std::string streamId;
+    std::string name;
+    std::string url;
+    StreamSourceType sourceType = StreamSourceType::Unknown;
+    StreamCodecType videoCodec = StreamCodecType::Unknown;
+    StreamCodecType audioCodec = StreamCodecType::Unknown;
+    std::string sourceTypeStr;   // 兼容字段: rtsp / file / http / hls
+    std::string codecStr;        // 兼容字段: h264 / h265
+    bool hasAudio = false;
+    bool hasVideo = true;
+    int ownerUid = 0;
+    int status = 0;              // 0 unknown, 1 online, 2 offline, 3 disabled
+    std::int64_t createdAtMs = 0;
+    std::int64_t updatedAtMs = 0;
+};
+
+// 单个会话槽位上的播放状态（不是“会话主表”）
+struct StreamSession {
+    StreamSession() = default;
+    StreamSession(int idx, std::string s_id, std::string url_)
+        : slotIndex(idx), streamId(std::move(s_id)), url(std::move(url_))
+    {}
+
+    std::string sessionId;
+    int slotIndex = -1;
+    std::string streamId;
+    std::string url;
+    PlayState playState = PlayState::Idle;
+    bool isSyncControlled = false;
+    std::int64_t positionMs = 0;
+    int volume = 100;
+    int updatedByUid = 0;
+    std::int64_t updatedAtMs = 0;
+};
+
+struct ControlCommand {
+    ControlCommand() = default;
+    ControlCommand(std::string comm, std::string s_id, int lay_idx)
+        : command(std::move(comm)), streamId(std::move(s_id)), layoutIndex(lay_idx)
+    {}
+
+    std::string cmdId;
+    std::string sessionId;
+    int operatorUid = 0;
+    ControlCommandType commandType = ControlCommandType::Unknown;
+    std::string command;   // 兼容字段: play / stop / switch / layout ...
+    std::string streamId;
+    int layoutIndex = -1;
+    std::int64_t seekPositionMs = -1;
+    int volume = -1;
+    SyncScope syncScope = SyncScope::Local;
+    bool sync = false;     // 兼容字段，建议逐步迁移到 syncScope
+    std::int64_t createdAtMs = 0;
 };
 
 #endif

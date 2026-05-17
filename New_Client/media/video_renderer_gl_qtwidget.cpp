@@ -23,7 +23,7 @@ uniform sampler2D u_tex_u;
 uniform sampler2D u_tex_v;
 varying vec2 v_uv;
 void main() {
-    vec2 st = vec2(v_uv.x, 1.0 - v_uv.y);
+    vec2 st = v_uv;
     float Y = texture2D(u_tex_y, st).r;
     float U = texture2D(u_tex_u, st).r - 0.5;
     float V = texture2D(u_tex_v, st).r - 0.5;

@@ -82,7 +82,7 @@ private:
 
     std::thread       decode_thread_;
     std::atomic<bool> decode_quit_;       // true 表示要求工作线程退出
-    std::atomic<bool> video_pause;       // true 表示暂停（但是工作线程不停，只是停止读包）
+    std::atomic<bool> video_pause{false};       // true 表示暂停（但是工作线程不停，只是停止读包）
 };
 
 #endif // DECODEPIPELINE_H

@@ -366,7 +366,8 @@ void SdlAudioOutput::audioThreadLoop()
 
         // 输出写进单块 outBuf（对 S16 立体声即为 LRLRLR... 交错）
         const int converted = swr_convert(swr_ctx_, &outBuf, dstMax, inPlanes, f->nb_samples);
-        if (converted < 0) {
+        if (converted < 0) 
+        {
             qWarning() << "[SdlAudioOutput] swr_convert failed" << converted;
             av_freep(&outBuf);
             continue;
@@ -374,7 +375,8 @@ void SdlAudioOutput::audioThreadLoop()
 
         int outBytes = av_samples_get_buffer_size(nullptr, obtained_spec_.channels, converted,
                                                   swr_out_fmt_, 1);
-        if (outBytes <= 0) {
+        if (outBytes <= 0) 
+        {
             qWarning() << "[SdlAudioOutput] av_samples_get_buffer_size failed" << outBytes;
             av_freep(&outBuf);
             continue;
@@ -385,7 +387,8 @@ void SdlAudioOutput::audioThreadLoop()
         {
             constexpr int kMaxPcmBacklog = 2 * 1024 * 1024;
             std::lock_guard<std::mutex> lock(pcm_mutex_);
-            if (pcm_buffer_.size() >= kMaxPcmBacklog) {
+            if (pcm_buffer_.size() >= kMaxPcmBacklog) 
+            {
                 pcm_buffer_.clear();
                 backlogCleared = true;
                 qWarning() << "[SdlAudioOutput] pcm backlog overflow, cleared";

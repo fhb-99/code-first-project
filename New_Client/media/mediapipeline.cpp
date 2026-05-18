@@ -171,7 +171,7 @@ void MediaPipeline::onPullVideoFrame()
 
     constexpr double kLateDropSec = 0.18;
     constexpr double kEarlyHoldSec = 0.14;
-    constexpr int kMaxPopsSynced = 12;
+    constexpr int kMaxPopsSynced = 5;
     constexpr int kMaxPopsNoClock = 1;
 
     const AVRational videoTb = decoder_->videoTimeBase();

@@ -38,6 +38,18 @@ public:
     bool init();
     void shutdown();
 
+    // Stop/Play 生命周期：允许把“取帧+重采样”的工作线程停掉，下一次 Play 再拉起。
+    // 这样 Stop=结束当前播放会话（业务语义更直观），同时避免重复初始化/退出 SDL 子系统。
+    void startWorker();
+    void stopWorker();
+
+    // Stop/切歌场景：不销毁本类，不 close SDL 设备，只切换当前使用的解码器。
+    // 允许传 nullptr，表示当前不从任何解码器取帧（线程会低频 sleep）。
+    void setDecoder(AVDecodeAbstract* decoder) noexcept;
+    // Stop 时用：确保音频线程不再使用旧 decoder 指针（避免 decoder 析构时 UAF 崩溃）。
+    // timeoutMs 只是防止极端情况下卡死；正常应很快返回。
+    void detachDecoderAndWait(int timeoutMs = 200) noexcept;
+
     void pause(bool paused);
     void setVolume(int volume); // UI 0–100，回调里会换算到 SDL_MIX_MAXVOLUME
 
@@ -67,7 +79,8 @@ private:
     [[nodiscard]] static AVSampleFormat sdlFormatToAv(Uint16 sdlFormat);
 
 private:
-    AVDecodeAbstract* decoder_ = nullptr; // 双队列在基类里，只读不拥有
+    std::atomic<AVDecodeAbstract*> decoder_{nullptr}; // 双队列在基类里，只读不拥有；允许 Stop 时置空
+    std::atomic<bool> decoder_in_use_{false};
 
     SDL_AudioDeviceID audio_device_id_ = 0; // 0 表示未打开设备
     SwrContext* swr_ctx_ = nullptr;           // 重采样：解码帧格式 → SDL 设备格式
@@ -83,6 +96,8 @@ private:
 
     SDL_AudioSpec desired_spec_{}; // 我们请求的参数（采样率/声道/格式）
     SDL_AudioSpec obtained_spec_{}; // 设备实际采用的参数（OpenAudio 后以此为准）
+
+    bool sdl_audio_inited_{false}; // init() 成功后置 true；保证 shutdown() 幂等
 
     // 上一次 swr_init 时使用的「输入侧」参数，用于判断要不要重建 SwrContext
     //（FFmpeg 没有 swr_get_input_* 之类的 API，只能自己记）

@@ -45,6 +45,8 @@ public:
     //封装总时长，ms， 未知或者无效为-1；
     int64_t durationMs() const;
 
+    std::atomic<bool> decode_quit_;       // true 表示要求工作线程退出
+
 private:
     int open(const std::string& url);   //解封装 + 解码初始化
 
@@ -81,7 +83,6 @@ private:
     int audio_time_base_den;
 
     std::thread       decode_thread_;
-    std::atomic<bool> decode_quit_;       // true 表示要求工作线程退出
     std::atomic<bool> video_pause{false};       // true 表示暂停（但是工作线程不停，只是停止读包）
 };
 

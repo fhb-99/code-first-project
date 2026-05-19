@@ -119,18 +119,22 @@ bool MediaPipeline::StartPlay(const QString& playUrl, QWidget* renderHost)
         return false;
     }
 
-    audio_output_ = std::make_unique<SdlAudioOutput>(decoder_.get());
-    if (!audio_output_->init()) {
-        qWarning() << "[MediaPipeline] audio output init failed.";
-        decoder_->stop();
-        decoder_.reset();
-        audio_output_.reset();
-        if (video_renderer_)
-            video_renderer_->hide();
-        if (placeholder)
-            placeholder->show();
-        return false;
+    if (!audio_output_) {
+        audio_output_ = std::make_unique<SdlAudioOutput>(nullptr);
+        if (!audio_output_->init()) {
+            qWarning() << "[MediaPipeline] audio output init failed.";
+            decoder_->stop();
+            decoder_.reset();
+            audio_output_.reset();
+            if (video_renderer_)
+                video_renderer_->hide();
+            if (placeholder)
+                placeholder->show();
+            return false;
+        }
     }
+    audio_output_->setDecoder(decoder_.get());
+    audio_output_->startWorker();
 
     audio_output_->setAudioTimeBase(decoder_->audioTimeBase());
     audio_output_->flushPcmAndResetClock();
@@ -266,25 +270,34 @@ void MediaPipeline::Stop()
 
     pending_early_video_.reset();
 
+    //先暂停解码线程，因为队列容量是有限的，后续把音频线程停掉，相当于没有了消费者，容易造成解码线程阻塞在push操作
+    if(decoder_) {
+        decoder_->pause(true);
+    }
+
+    // Stop 顺序必须保证：先停音频线程，再释放 decoder_。
+    // 否则 audioThreadLoop() 仍可能在 try_pop_audio_frame() 里访问已析构的 decoder_ 导致崩溃。
+    if (audio_output_) {
+        audio_output_->pause(true);
+        audio_output_->flushPcmAndResetClock();
+        audio_output_->detachDecoderAndWait();
+        audio_output_->stopWorker();
+    }
+
     if (decoder_) {
         decoder_->stop();
         decoder_.reset();
     }
 
-    if (video_renderer_)
-        video_renderer_->shutdown();
-
-    if (audio_output_) {
-        audio_output_->shutdown();
-        audio_output_.reset();
-    }
-
     QWidget* host = render_host_.data();
     if (host) {
-        if (auto* ph = host->findChild<QLabel*>(QStringLiteral("lb_video_placeholder")))
+        if (auto* ph = host->findChild<QLabel*>(QStringLiteral("lb_video_placeholder"))) {
             ph->show();
+            ph->raise(); // 确保回到“播放前”的占位显示层级
+        }
         if (video_renderer_)
             video_renderer_->hide();
+        host->update();
     }
 
     paused_ = false;

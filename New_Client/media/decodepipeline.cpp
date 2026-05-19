@@ -1,7 +1,7 @@
 #include "decodepipeline.h"
-
 #include <QDebug>
 #include <algorithm>
+#include <system_error>
 
 #include <libavutil/mathematics.h>
 #include <libavutil/rational.h>
@@ -22,6 +22,17 @@ static void ffmpegLogErr(const char *where, int err)
     char buf[AV_ERROR_MAX_STRING_SIZE] = { 0 };
     av_strerror(err, buf, sizeof(buf)); // FFmpeg 错误码转可读字符串，便于日志排查
     qDebug() << "[DecodePipeline]" << where << "err:" << err << buf;
+}
+
+// FFmpeg interrupt callback：用于打断 av_read_frame 等阻塞调用，让 Stop/Seek 时 join 能及时返回。
+static int ffmpegInterruptCb(void* opaque)
+{
+    auto * self = static_cast<DecodePipeline *>(opaque);
+    if(!self)
+    {
+        return 0;
+    }
+    return self->decode_quit_.load(std::memory_order_acquire) ? 1 : 0;
 }
 
 
@@ -292,13 +303,20 @@ int DecodePipeline::open(const std::string& url)
     av_dict_set(&fmt_opts, "buffer_size", "2048000", 0);
 
     //4、分配并且初始化（格式上下文由下方 avformat_open_input 一并创建并打开）
-    fmt_ctx = nullptr;
+    fmt_ctx = avformat_alloc_context();
+    if(!fmt_ctx) {
+        releaseFmtOptsDict();
+        return -5;
+    }
+    //设置中断函数
+    fmt_ctx->interrupt_callback.callback = &ffmpegInterruptCb;
+    fmt_ctx->interrupt_callback.opaque = this;
 
     // 5、avformat_open_input：创建并打开输入（文件/URL/设备），填充 AVFormatContext
     // 虽可在 AVDictionary 里设超时，仍可能长时间阻塞，生产环境建议配 interrupt_callback
     int res = avformat_open_input(&fmt_ctx, ifile.c_str(), ifmt, &fmt_opts);
     if (res < 0) {
-        qDebug() << "avformat open failed" << res;
+        ffmpegLogErr("avformat_open_input", res);
         releaseFmtOptsDict();
         releaseFormatContext();
         return res;
@@ -440,8 +458,15 @@ int DecodePipeline::open(const std::string& url)
 void DecodePipeline::join_decode_worker()
 {
     decode_quit_.store(true, std::memory_order_release);
-    if (decode_thread_.joinable()) {
+    // 必须在 join 前 clear：音频停掉后队列满，解码线程会阻塞在 push()；
+    // clear 会 notify 条件变量，让线程醒来看到 decode_quit_ 后退出。
+    clear_buf();
+    if (!decode_thread_.joinable())
+        return;
+    try {
         decode_thread_.join();
+    } catch (const std::system_error& e) {
+        qWarning() << "[DecodePipeline] decode_thread_.join failed:" << e.what();
     }
 }
 
@@ -476,6 +501,10 @@ void DecodePipeline::decode_loop_worker()
                 av_packet_unref(packet); // av_packet_unref：递减 packet 内部 buffer 引用，可复用 packet 外壳
                 continue;
             }
+            if (readRes == AVERROR_EXIT) {
+                av_packet_unref(packet);
+                break;
+            }
             ffmpegLogErr("av_read_frame", readRes);
             break;
         }
@@ -506,21 +535,23 @@ int DecodePipeline::start_decode_worker(const std::string& url)
 {
     stop_decode_worker(); // 先结束旧线程并 close，避免重复 start 泄漏
 
+    // stop_decode_worker() 会把 decode_quit_ 置 true；open() 内 interrupt_callback 会读该标志。
+    // 若不在 open 前清零，avformat_open_input 会立刻以 AVERROR_EXIT 失败（常被误读成“找不到协议”）。
+    decode_quit_.store(false, std::memory_order_release);
+
     int res = open(url); // open 内完成 demux + codec 打开与 packet/frame 分配（当前仍在调用线程执行）
     if (res != 0) {
         return res;
     }
 
-    decode_quit_.store(false, std::memory_order_release);
     decode_thread_ = std::thread(&DecodePipeline::decode_loop_worker, this);
     return 0;
 }
 
 void DecodePipeline::stop_decode_worker()
 {
-    join_decode_worker(); // 置 decode_quit_ + join，线程内不再访问 FFmpeg 对象
-    clear_buf();          // 清空队列
-    close();              // 再统一 avcodec_free / avformat_close_input 等
+    join_decode_worker(); // decode_quit_ → clear_buf(唤醒阻塞 push) → join
+    close();
 }
 
 int64_t DecodePipeline::durationMs() const

@@ -8,6 +8,7 @@
 #include "RedisMgr.h"
 #include "MysqlMgr.h"
 #include "StatusGrpcClient.h"
+#include "ConfigMgr.h"
 
 class HttpConnection;
 

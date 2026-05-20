@@ -284,8 +284,9 @@ LogicSystem::LogicSystem()
 
 		std::cout << "succeed to load userinfo uid is " << userInfo.uid << std::endl;
         //获取media服务器的ip和port
-        media_host = gcfgMgr["MediaControlServer"]["Host"];
-        media_port = gcfgMgr["MediaControlServer"]["Port"];
+        auto& gcfgMgr = ConfigMgr::Inst();
+        auto media_host = gcfgMgr["MediaControlServer"]["Host"];
+        auto media_port = gcfgMgr["MediaControlServer"]["Port"];
 		root["error"] = 0;
 		root["email"] = email;
 		root["uid"] = userInfo.uid;

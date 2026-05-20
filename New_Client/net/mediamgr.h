@@ -1,24 +1,24 @@
-#ifndef TCPMGR_H
-#define TCPMGR_H
+#ifndef MEDIAMGR_H
+#define MEDIAMGR_H
+
 #include <QTcpSocket>
 #include "singleton.h"
 #include "global.h"
 #include <functional>
 #include <QObject>
 #include <memory>
-#include "userdata.h"
 #include <QJsonArray>
 #include <QMap>
 
-class TcpMgr:public QObject, public Singleton<TcpMgr>,
-        public std::enable_shared_from_this<TcpMgr>
+class MediaMgr: public QObject, public Singleton<MediaMgr>,
+        public std::enable_shared_from_this<MediaMgr>
 {
     Q_OBJECT
 public:
-   ~ TcpMgr();
+    ~MediaMgr();
 private:
-    friend class Singleton<TcpMgr>;
-    TcpMgr();
+    friend class Singleton<MediaMgr>;
+    MediaMgr();
     void initHandlers();
     void handleMsg(ReqId id, int len, QByteArray data);
     QTcpSocket _socket;
@@ -35,14 +35,12 @@ public slots:
 signals:
     void sig_con_success(bool bsuccess);
     void sig_send_data(ReqId reqId, QByteArray data);
-    void sig_swich_chatdlg();
-    void sig_load_apply_list(QJsonArray json_array);
-    void sig_login_failed(int);
-    void sig_user_search(std::shared_ptr<SearchInfo>);
-    void sig_friend_apply(std::shared_ptr<AddFriendApply>);
-    void sig_add_auth_friend(std::shared_ptr<AuthInfo>);
-    void sig_auth_rsp(std::shared_ptr<AuthRsp>);
-    void sig_text_chat_msg(std::shared_ptr<TextChatMsg> msg);
+    void sig_media_stream_list(QJsonArray streams);
+    void sig_media_session_list(QJsonArray sessions);
+    void sig_media_play_rsp(QJsonObject obj);
+    void sig_media_stop_rsp(QJsonObject obj);
+    void sig_media_sync_notify(QJsonObject obj);
+    void sig_media_common_rsp(ReqId id, QJsonObject obj);
 };
 
-#endif // TCPMGR_H
+#endif // MEDIAMGR_H

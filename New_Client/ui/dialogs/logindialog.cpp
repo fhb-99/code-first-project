@@ -3,6 +3,7 @@
 #include <QDebug>
 #include "httpmgr.h"
 #include "tcpmgr.h"
+#include "mediamgr.h"
 #include <QRegExp>
 #include <QRegularExpression>
 #include <QPainter>
@@ -36,6 +37,7 @@ LoginDialog::LoginDialog(QWidget *parent) :
 
     //连接tcp连接请求的信号和槽函数
     connect(this, &LoginDialog::sig_connect_tcp, TcpMgr::GetInstance().get(), &TcpMgr::slot_tcp_connect);
+    connect(this, &LoginDialog::sig_connect_media_tcp, MediaMgr::GetInstance().get(), &MediaMgr::slot_tcp_connect);
     //连接tcp管理者发出的连接成功信号
     connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_con_success, this, &LoginDialog::slot_tcp_con_finish);
     //连接tcp管理者发出的登陆失败信号
@@ -106,6 +108,15 @@ void LoginDialog::initHttpHandlers()
         qDebug()<< "email is " << email << " uid is " << si.Uid <<" host is "
                 << si.Host << " Port is " << si.Port << " Token is " << si.Token;
         emit sig_connect_tcp(si);
+
+        if (!media_host.isEmpty() && !media_port.isEmpty()) {
+            ServerInfo media_si;
+            media_si.Uid = si.Uid;
+            media_si.Token = si.Token;
+            media_si.Host = media_host;
+            media_si.Port = media_port;
+            emit sig_connect_media_tcp(media_si);
+        }
     });
 }
 

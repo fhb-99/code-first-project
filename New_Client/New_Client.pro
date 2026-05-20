@@ -35,6 +35,7 @@ SOURCES += \
     media/sdlaudiooutput.cpp \
     media/video_renderer_gl_qtwidget.cpp \
     media/streamcontroller.cpp \
+    net/mediamgr.cpp \
     net/httpmgr.cpp \
     net/tcpmgr.cpp \
     ui/dialogs/chatdialog.cpp \
@@ -93,6 +94,7 @@ HEADERS += \
     media/streamcontroller.h \
     media/video_renderer.h \
     media/video_renderer_gl_qtwidget.h \
+    net/mediamgr.h \
     net/httpmgr.h \
     net/tcpmgr.h \
     ui/dialogs/chatdialog.h \

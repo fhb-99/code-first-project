@@ -4,6 +4,7 @@
 
 #include <QDebug>
 
+#include <chrono>
 #include <cmath>
 #include <limits>
 
@@ -79,6 +80,27 @@ SdlAudioOutput::SdlAudioOutput(AVDecodeAbstract* decoder, QObject* parent)
 SdlAudioOutput::~SdlAudioOutput()
 {
     shutdown();
+}
+
+void SdlAudioOutput::setDecoder(AVDecodeAbstract* decoder) noexcept
+{
+    decoder_.store(decoder, std::memory_order_release);
+}
+
+void SdlAudioOutput::detachDecoderAndWait(int timeoutMs) noexcept
+{
+    decoder_.store(nullptr, std::memory_order_release);
+    const auto start = std::chrono::steady_clock::now();
+    while (decoder_in_use_.load(std::memory_order_acquire)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        if (timeoutMs > 0) {
+            const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - start)
+                                     .count();
+            if (elapsed >= timeoutMs)
+                break;
+        }
+    }
 }
 
 int64_t SdlAudioOutput::sdlChannelsToAvLayout(int channels)
@@ -158,16 +180,12 @@ bool SdlAudioOutput::recreateSwrIfNeeded(const AVFrame* frame)
 
 bool SdlAudioOutput::init()
 {
-    if (!decoder_) {
-        qWarning() << "[SdlAudioOutput] Decoder is null.";
-        return false;
-    }
-
     // 只初始化 SDL 音频子系统，不要 SDL_INIT_VIDEO（与「不建 SDL 窗口」一致）
     if (SDL_Init(SDL_INIT_AUDIO) < 0) {
         qWarning() << "[SdlAudioOutput] SDL_Init(SDL_INIT_AUDIO) failed:" << SDL_GetError();
         return false;
     }
+    sdl_audio_inited_ = true;
 
     // desired：希望声卡用的参数；具体能否满足看 obtained_spec_
     desired_spec_.freq = 44100;
@@ -182,6 +200,7 @@ bool SdlAudioOutput::init()
     if (audio_device_id_ == 0) {
         qWarning() << "[SdlAudioOutput] SDL_OpenAudioDevice failed:" << SDL_GetError();
         SDL_QuitSubSystem(SDL_INIT_AUDIO);
+        sdl_audio_inited_ = false;
         return false;
     }
 
@@ -217,21 +236,51 @@ bool SdlAudioOutput::init()
              << "samples" << obtained_spec_.samples;
 
     // 启动「取帧 + 重采样」线程；真正开始播放由 MediaPipeline 调用 pause(false)
-    audio_quit_.store(false, std::memory_order_release);
-    audio_paused_.store(true, std::memory_order_release);
-    audio_thread_ = std::thread(&SdlAudioOutput::audioThreadLoop, this);
+    startWorker();
 
     return true;
 }
 
+void SdlAudioOutput::startWorker()
+{
+    if (!sdl_audio_inited_)
+        return;
+    if (audio_thread_.joinable())
+        return;
+    audio_quit_.store(false, std::memory_order_release);
+    audio_paused_.store(true, std::memory_order_release);
+    decoder_in_use_.store(false, std::memory_order_release);
+    audio_thread_ = std::thread(&SdlAudioOutput::audioThreadLoop, this);
+}
+
+void SdlAudioOutput::stopWorker()
+{
+    // Stop 只停工作线程，不关闭 SDL 设备/子系统；下次 Play 可 startWorker() 复用。
+    audio_paused_.store(true, std::memory_order_release);
+    if (audio_device_id_ != 0)
+        SDL_PauseAudioDevice(audio_device_id_, 1);
+
+    detachDecoderAndWait();
+
+    if (!audio_thread_.joinable())
+        return;
+    audio_quit_.store(true, std::memory_order_release);
+    audio_thread_.join();
+    decoder_in_use_.store(false, std::memory_order_release);
+}
+
 void SdlAudioOutput::shutdown()
 {
-    // 先停消费线程，不要再往 pcm_buffer_ 里写，再关声卡（回调随后也停）
-    if (!audio_quit_.load(std::memory_order_acquire)) {
-        audio_quit_.store(true, std::memory_order_release);
-        if (audio_thread_.joinable())
-            audio_thread_.join();
-    }
+    if (!sdl_audio_inited_)
+        return;
+
+    // 先停 SDL 回调线程，避免 CloseAudioDevice 时 userdata 悬空回调
+    audio_paused_.store(true, std::memory_order_release);
+    if (audio_device_id_ != 0)
+        SDL_PauseAudioDevice(audio_device_id_, 1);
+
+    // 先停工作线程，不要再往 pcm_buffer_ 里写，再关声卡（回调随后也停）
+    stopWorker();
 
     swr_free(&swr_ctx_);
     swr_ctx_ = nullptr;
@@ -242,14 +291,23 @@ void SdlAudioOutput::shutdown()
     swr_out_fmt_ = AV_SAMPLE_FMT_NONE;
 
     if (audio_device_id_ != 0) {
+        // 锁住设备，确保回调不会并发访问 pcm_buffer_ / clock
+        SDL_LockAudioDevice(audio_device_id_);
+        {
+            std::lock_guard<std::mutex> lock(pcm_mutex_);
+            pcm_buffer_.clear();
+        }
+        SDL_UnlockAudioDevice(audio_device_id_);
+
         SDL_CloseAudioDevice(audio_device_id_);
         audio_device_id_ = 0;
     }
 
-    SDL_QuitSubSystem(SDL_INIT_AUDIO);
+    // 在 Windows + 部分声卡驱动上，SDL_QuitSubSystem(SDL_INIT_AUDIO) 偶发触发竞态崩溃
+    //（即便已经 Pause/Close 过设备）。这里把 Quit 推迟到进程退出时再做（或干脆不做），
+    // Stop/切歌场景只需 CloseAudioDevice 即可。
+    sdl_audio_inited_ = false;
 
-    std::lock_guard<std::mutex> lock(pcm_mutex_);
-    pcm_buffer_.clear();
     resetPlaybackClock();
 }
 
@@ -335,15 +393,26 @@ void SdlAudioOutput::audioThreadLoop()
     while (!audio_quit_.load(std::memory_order_acquire)) {
         // pause=true 时 MediaPipeline 已 PauseAudioDevice；这里少取帧，降低空转占 CPU
         if (audio_paused_.load(std::memory_order_acquire)) {
+            decoder_in_use_.store(false, std::memory_order_release);
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
             continue;
         }
 
+        AVDecodeAbstract* decoder = decoder_.load(std::memory_order_acquire);
+        if (!decoder) {
+            decoder_in_use_.store(false, std::memory_order_release);
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            continue;
+        }
+
+        decoder_in_use_.store(true, std::memory_order_release);
         AvFrameUniquePtr frame;
-        if (!decoder_->try_pop_audio_frame(frame)) {
+        if (!decoder->try_pop_audio_frame(frame)) {
+            decoder_in_use_.store(false, std::memory_order_release);
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
         }
+        decoder_in_use_.store(false, std::memory_order_release);
 
         AVFrame* f = frame.get();
         if (!f || !recreateSwrIfNeeded(f))
@@ -366,7 +435,8 @@ void SdlAudioOutput::audioThreadLoop()
 
         // 输出写进单块 outBuf（对 S16 立体声即为 LRLRLR... 交错）
         const int converted = swr_convert(swr_ctx_, &outBuf, dstMax, inPlanes, f->nb_samples);
-        if (converted < 0) {
+        if (converted < 0) 
+        {
             qWarning() << "[SdlAudioOutput] swr_convert failed" << converted;
             av_freep(&outBuf);
             continue;
@@ -374,7 +444,8 @@ void SdlAudioOutput::audioThreadLoop()
 
         int outBytes = av_samples_get_buffer_size(nullptr, obtained_spec_.channels, converted,
                                                   swr_out_fmt_, 1);
-        if (outBytes <= 0) {
+        if (outBytes <= 0) 
+        {
             qWarning() << "[SdlAudioOutput] av_samples_get_buffer_size failed" << outBytes;
             av_freep(&outBuf);
             continue;
@@ -385,7 +456,8 @@ void SdlAudioOutput::audioThreadLoop()
         {
             constexpr int kMaxPcmBacklog = 2 * 1024 * 1024;
             std::lock_guard<std::mutex> lock(pcm_mutex_);
-            if (pcm_buffer_.size() >= kMaxPcmBacklog) {
+            if (pcm_buffer_.size() >= kMaxPcmBacklog) 
+            {
                 pcm_buffer_.clear();
                 backlogCleared = true;
                 qWarning() << "[SdlAudioOutput] pcm backlog overflow, cleared";

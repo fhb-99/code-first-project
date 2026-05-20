@@ -25,8 +25,14 @@ class ChatDialog : public QDialog
     Q_OBJECT
 
 public:
+    enum class PlaySourceMode {
+        ServerStream = 0,
+        LocalFile = 1
+    };
+
     explicit ChatDialog(QWidget *parent = nullptr);
     ~ChatDialog();
+    void SetPlaySourceMode(PlaySourceMode mode);
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override ;
 
@@ -57,6 +63,12 @@ private:
     //std::array<std::unique_ptr<MediaPipeline>, 4> _media_pipelines;
     QString _selected_stream_id;
     QString _selected_session_id;
+    PlaySourceMode _play_source_mode;
+    bool _pending_pick_server_stream;
+    bool _current_play_is_local;
+    QJsonArray _latest_streams;
+    void tryStartPlayFromServerList();
+    void startLocalFilePlayback();
 public slots:
     void slot_loading_chat_user();
     void slot_side_chat();
@@ -87,6 +99,7 @@ public slots:
     void slot_media_play_stopped();
     void slot_media_sync_play(QString streamId, QString playUrl, QString sessionId);
     void slot_media_status(QString text);
+    void slot_play_source_mode_changed(int index);
     void slot_player_ui_play_clicked();
     void slot_player_ui_pause_clicked();
     void slot_player_ui_stop_clicked();

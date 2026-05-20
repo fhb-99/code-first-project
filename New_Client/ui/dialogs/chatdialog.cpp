@@ -21,6 +21,13 @@
 #include "usermgr.h"
 #include "streamcontroller.h"
 #include "mediapipeline.h"
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFileDialog>
+#include <QHeaderView>
+#include <QComboBox>
+#include <QTableWidget>
+#include <QVBoxLayout>
 
 
 ChatDialog::ChatDialog(QWidget *parent) :
@@ -28,7 +35,10 @@ ChatDialog::ChatDialog(QWidget *parent) :
     ui(new Ui::ChatDialog),_b_loading(false),_mode(ChatUIMode::ChatMode),
     _state(ChatUIMode::ChatMode),_last_widget(nullptr),_cur_chat_uid(0),
     _stream_controller(new StreamController(this)),
-    _media_pipeline(new MediaPipeline(this))
+    _media_pipeline(new MediaPipeline(this)),
+    _play_source_mode(PlaySourceMode::ServerStream),
+    _pending_pick_server_stream(false),
+    _current_play_is_local(false)
 {
     ui->setupUi(this);
 
@@ -168,6 +178,8 @@ ChatDialog::ChatDialog(QWidget *parent) :
     connect(ui->btn_join_session, &QPushButton::clicked, this, &ChatDialog::slot_media_join_session);
     connect(ui->list_streams, &QListWidget::itemClicked, this, &ChatDialog::slot_media_stream_item_clicked);
     connect(ui->list_sessions, &QListWidget::itemClicked, this, &ChatDialog::slot_media_session_item_clicked);
+    connect(ui->combo_play_source_mode, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &ChatDialog::slot_play_source_mode_changed);
 
     // stream manager -> ui
     connect(_stream_controller, &StreamController::sig_streams_updated, this, &ChatDialog::slot_media_streams_updated);
@@ -188,6 +200,8 @@ ChatDialog::ChatDialog(QWidget *parent) :
             &mediaplayerpage::syncProgressFromPipeline);
 
     // preload stream/session data once player module is available
+    ui->combo_play_source_mode->setCurrentIndex(0);
+    SetPlaySourceMode(PlaySourceMode::ServerStream);
     _stream_controller->RequestStreamList("");
     _stream_controller->RequestSessionList();
 }
@@ -906,6 +920,7 @@ void ChatDialog::slot_media_session_item_clicked(QListWidgetItem *item)
 
 void ChatDialog::slot_media_streams_updated(QJsonArray streams)
 {
+    _latest_streams = streams;
     ui->list_streams->clear();
     for (const auto& v : streams) {
         const QJsonObject obj = v.toObject();
@@ -917,7 +932,11 @@ void ChatDialog::slot_media_streams_updated(QJsonArray streams)
         item->setData(Qt::UserRole + 1, url);
         ui->list_streams->addItem(item);
     }
-    slot_media_status(QString("流列表更新: %1 条").arg(streams.size()));
+    slot_media_status(QString("stream list updated: %1").arg(streams.size()));
+    if (_pending_pick_server_stream) {
+        _pending_pick_server_stream = false;
+        tryStartPlayFromServerList();
+    }
 }
 
 void ChatDialog::slot_media_sessions_updated(QJsonArray sessions)
@@ -936,15 +955,16 @@ void ChatDialog::slot_media_sessions_updated(QJsonArray sessions)
 
 void ChatDialog::slot_media_play_started(QString streamId, QString playUrl, QString sessionId)
 {
+    _current_play_is_local = false;
     ui->media_player_page->SetCurrentStream(streamId, playUrl);
     ui->media_player_page->SetSessionText(QString("Session: %1").arg(sessionId.isEmpty() ? "room_default" : sessionId));
     ui->media_player_page->SetStatusText("Status: Playing");
-    ui->lb_collab_mode->setText(QString("模式: 播放中 %1").arg(streamId));
+    ui->lb_collab_mode->setText(QString("mode: playing %1").arg(streamId));
     if (!_media_pipeline->StartPlay(playUrl, ui->media_player_page->videoRenderHostWidget())) {
         ui->media_player_page->resetPlaybackTimelineUi();
         ui->media_player_page->updatePauseToggleUi(false, false);
         ui->media_player_page->SetStatusText(QStringLiteral("Status: Playback failed"));
-        slot_media_status(QStringLiteral("本地播放启动失败"));
+        slot_media_status(QStringLiteral("local playback start failed"));
     } else {
         ui->media_player_page->updatePauseToggleUi(true, false);
     }
@@ -961,6 +981,7 @@ void ChatDialog::slot_media_play_stopped()
 
 void ChatDialog::slot_media_sync_play(QString streamId, QString playUrl, QString sessionId)
 {
+    _current_play_is_local = false;
     ui->media_player_page->SetCurrentStream(streamId, playUrl);
     ui->media_player_page->SetSessionText(QString("Session: %1").arg(sessionId));
     ui->media_player_page->SetStatusText("Status: Synced Playing");
@@ -968,7 +989,7 @@ void ChatDialog::slot_media_sync_play(QString streamId, QString playUrl, QString
         ui->media_player_page->resetPlaybackTimelineUi();
         ui->media_player_page->updatePauseToggleUi(false, false);
         ui->media_player_page->SetStatusText(QStringLiteral("Status: Sync playback failed"));
-        slot_media_status(QStringLiteral("同步播放：本地管线启动失败"));
+        slot_media_status(QStringLiteral("sync local playback failed"));
     } else {
         ui->media_player_page->updatePauseToggleUi(true, false);
     }
@@ -979,21 +1000,25 @@ void ChatDialog::slot_media_status(QString text)
     ui->media_player_page->SetStatusText(QString("Status: %1").arg(text));
 }
 
-void ChatDialog::slot_player_ui_play_clicked()
+void ChatDialog::slot_play_source_mode_changed(int index)
 {
-    if (_selected_stream_id.isEmpty() && ui->list_streams->count() > 0) {
-        auto* first = ui->list_streams->item(0);
-        _selected_stream_id = first->data(Qt::UserRole).toString();
-    }
-    if (_selected_session_id.isEmpty() && ui->list_sessions->count() > 0) {
-        auto* first = ui->list_sessions->item(0);
-        _selected_session_id = first->data(Qt::UserRole).toString();
-    }
-    if (_selected_stream_id.isEmpty()) {
-        slot_media_status("没有可播放的流，请先搜索并选择流");
+    if (index == static_cast<int>(PlaySourceMode::LocalFile)) {
+        SetPlaySourceMode(PlaySourceMode::LocalFile);
         return;
     }
-    _stream_controller->PlayStream(_selected_stream_id, _selected_session_id);
+    SetPlaySourceMode(PlaySourceMode::ServerStream);
+}
+
+void ChatDialog::slot_player_ui_play_clicked()
+{
+    if (_play_source_mode == PlaySourceMode::LocalFile) {
+        startLocalFilePlayback();
+        return;
+    }
+
+    _pending_pick_server_stream = true;
+    _stream_controller->RequestStreamList(ui->edit_stream_search->text().trimmed());
+    slot_media_status(QStringLiteral("Requesting stream list from server"));
 }
 
 void ChatDialog::slot_player_ui_stop_clicked()
@@ -1001,7 +1026,10 @@ void ChatDialog::slot_player_ui_stop_clicked()
     _media_pipeline->Stop();
     ui->media_player_page->resetPlaybackTimelineUi();
     ui->media_player_page->updatePauseToggleUi(false, false);
-    _stream_controller->StopStream(_selected_session_id);
+    if (!_current_play_is_local) {
+        _stream_controller->StopStream(_selected_session_id);
+    }
+    _current_play_is_local = false;
 }
 
 void ChatDialog::slot_player_ui_pause_clicked()
@@ -1033,4 +1061,122 @@ void ChatDialog::slot_player_ui_volume_changed(int value)
 {
     _media_pipeline->SetVolume(value);
     slot_media_status(QString("音量 %1%").arg(value));
+}
+
+void ChatDialog::SetPlaySourceMode(PlaySourceMode mode)
+{
+    _play_source_mode = mode;
+    if (mode == PlaySourceMode::ServerStream) {
+        slot_media_status(QStringLiteral("Play mode: server stream"));
+    } else {
+        slot_media_status(QStringLiteral("Play mode: local file"));
+    }
+}
+
+void ChatDialog::tryStartPlayFromServerList()
+{
+    if (_latest_streams.isEmpty()) {
+        slot_media_status(QStringLiteral("No stream returned from server"));
+        return;
+    }
+
+    QDialog picker(this);
+    picker.setWindowTitle(QStringLiteral("Select Stream"));
+    picker.resize(760, 420);
+
+    auto* table = new QTableWidget(&picker);
+    table->setColumnCount(3);
+    table->setHorizontalHeaderLabels({QStringLiteral("stream_id"), QStringLiteral("url"), QStringLiteral("owner_id")});
+    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    table->setSelectionMode(QAbstractItemView::SingleSelection);
+    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    table->setRowCount(_latest_streams.size());
+
+    for (int i = 0; i < _latest_streams.size(); ++i) {
+        const auto obj = _latest_streams.at(i).toObject();
+        const QString streamId = obj.value("stream_id").toString();
+        const QString url = obj.value("url").toString();
+        const QString ownerId = QString::number(obj.value("owner_id").toInt());
+
+        auto* streamItem = new QTableWidgetItem(streamId);
+        streamItem->setData(Qt::UserRole, streamId);
+        streamItem->setData(Qt::UserRole + 1, url);
+        table->setItem(i, 0, streamItem);
+        table->setItem(i, 1, new QTableWidgetItem(url));
+        table->setItem(i, 2, new QTableWidgetItem(ownerId));
+    }
+
+    if (table->rowCount() > 0) {
+        table->selectRow(0);
+    }
+
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &picker);
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &picker, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &picker, &QDialog::reject);
+    QObject::connect(table, &QTableWidget::doubleClicked, &picker, &QDialog::accept);
+
+    auto* layout = new QVBoxLayout(&picker);
+    layout->addWidget(table);
+    layout->addWidget(buttons);
+
+    if (picker.exec() != QDialog::Accepted) {
+        slot_media_status(QStringLiteral("Cancelled stream selection"));
+        return;
+    }
+
+    const int row = table->currentRow();
+    if (row < 0 || row >= table->rowCount()) {
+        slot_media_status(QStringLiteral("No stream selected"));
+        return;
+    }
+
+    _selected_stream_id = table->item(row, 0)->data(Qt::UserRole).toString();
+    const QString selectedUrl = table->item(row, 0)->data(Qt::UserRole + 1).toString();
+
+    if (_selected_session_id.isEmpty() && ui->list_sessions->count() > 0) {
+        auto* first = ui->list_sessions->item(0);
+        _selected_session_id = first->data(Qt::UserRole).toString();
+    }
+
+    if (_selected_stream_id.isEmpty()) {
+        slot_media_status(QStringLiteral("Invalid stream selection"));
+        return;
+    }
+
+    ui->media_player_page->SetCurrentStream(_selected_stream_id, selectedUrl);
+    _stream_controller->PlayStream(_selected_stream_id, _selected_session_id);
+    slot_media_status(QStringLiteral("Play request sent"));
+}
+
+void ChatDialog::startLocalFilePlayback()
+{
+    const QString path = QFileDialog::getOpenFileName(
+        this,
+        QStringLiteral("Select Local Media File"),
+        QString(),
+        QStringLiteral("Media Files (*.mp4 *.mkv *.flv *.avi *.mov *.mp3 *.aac *.wav);;All Files (*.*)"));
+
+    if (path.isEmpty()) {
+        slot_media_status(QStringLiteral("Cancelled local file selection"));
+        return;
+    }
+
+    if (!_media_pipeline->StartPlay(path, ui->media_player_page->videoRenderHostWidget())) {
+        ui->media_player_page->resetPlaybackTimelineUi();
+        ui->media_player_page->updatePauseToggleUi(false, false);
+        ui->media_player_page->SetStatusText(QStringLiteral("Status: Local playback failed"));
+        slot_media_status(QStringLiteral("Local playback failed"));
+        _current_play_is_local = false;
+        return;
+    }
+
+    _current_play_is_local = true;
+    ui->media_player_page->SetCurrentStream(QStringLiteral("local_file"), path);
+    ui->media_player_page->SetSessionText(QStringLiteral("Session: local"));
+    ui->media_player_page->SetStatusText(QStringLiteral("Status: Local Playing"));
+    ui->media_player_page->updatePauseToggleUi(true, false);
+    slot_media_status(QStringLiteral("Local playback started"));
 }

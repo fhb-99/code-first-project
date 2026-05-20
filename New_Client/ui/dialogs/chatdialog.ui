@@ -351,6 +351,55 @@
          </layout>
         </widget>
         <widget class="QWidget" name="page_2">
+         <property name="styleSheet">
+          <string notr="true">QWidget#page_2 {
+  background: #f5f7fb;
+}
+QFrame#frame_stream_search,
+QFrame#frame_session_bar,
+QFrame#frame_collab_info {
+  background: #ffffff;
+  border: 1px solid #d7deea;
+  border-radius: 8px;
+}
+QLabel#lb_stream_list_title,
+QLabel#lb_session_list_title,
+QLabel#lb_collab_title {
+  color: #2c3a4f;
+  font-weight: 600;
+}
+QPushButton {
+  background: #f7f9fc;
+  border: 1px solid #cfd8e6;
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+QPushButton:hover {
+  background: #eaf1ff;
+  border: 1px solid #9eb8ea;
+}
+QPushButton:pressed {
+  background: #dce8ff;
+}
+QLineEdit, QComboBox {
+  background: #ffffff;
+  border: 1px solid #cfd8e6;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+QListWidget {
+  background: #ffffff;
+  border: 1px solid #d7deea;
+  border-radius: 8px;
+}
+QListWidget::item {
+  padding: 6px 8px;
+}
+QListWidget::item:selected {
+  background: #dce8ff;
+  color: #1f2a3d;
+}</string>
+         </property>
          <layout class="QVBoxLayout" name="verticalLayout_media_left">
           <property name="spacing">
            <number>8</number>
@@ -388,7 +437,7 @@
              <item>
               <widget class="QLineEdit" name="edit_stream_search">
                <property name="placeholderText">
-                <string>???ID / ??</string>
+                <string>输入 Stream ID / 关键词</string>
                </property>
               </widget>
              </item>
@@ -401,7 +450,7 @@
                 </size>
                </property>
                <property name="text">
-                <string>??</string>
+                <string>搜索</string>
                </property>
               </widget>
              </item>
@@ -411,7 +460,7 @@
           <item>
            <widget class="QLabel" name="lb_stream_list_title">
             <property name="text">
-             <string>??????</string>
+             <string>可播放流列表</string>
             </property>
            </widget>
           </item>
@@ -439,14 +488,14 @@
              <item>
               <widget class="QPushButton" name="btn_create_session">
                <property name="text">
-                <string>????</string>
+                <string>创建会话</string>
                </property>
               </widget>
              </item>
              <item>
               <widget class="QPushButton" name="btn_join_session">
                <property name="text">
-                <string>????</string>
+                <string>加入会话</string>
                </property>
               </widget>
              </item>
@@ -456,7 +505,7 @@
           <item>
            <widget class="QLabel" name="lb_session_list_title">
             <property name="text">
-             <string>????</string>
+             <string>媒体会话列表</string>
             </property>
            </widget>
           </item>
@@ -491,21 +540,46 @@
              <item>
               <widget class="QLabel" name="lb_collab_title">
                <property name="text">
-                <string>????</string>
+                <string>播放控制</string>
                </property>
               </widget>
              </item>
              <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_play_source_mode">
+               <item>
+                <widget class="QLabel" name="lb_play_source_mode">
+                 <property name="text">
+                  <string>播放来源:</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QComboBox" name="combo_play_source_mode">
+                 <item>
+                 <property name="text">
+                   <string>服务器流</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>本地文件</string>
+                  </property>
+                 </item>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
               <widget class="QLabel" name="lb_collab_master">
                <property name="text">
-                <string>??: -</string>
+                <string>当前会话: -</string>
                </property>
               </widget>
              </item>
              <item>
               <widget class="QLabel" name="lb_collab_mode">
                <property name="text">
-                <string>??: ???</string>
+                <string>当前状态: 未播放</string>
                </property>
               </widget>
              </item>

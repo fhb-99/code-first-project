@@ -82,9 +82,54 @@ void MediaMgr::initHandlers()
 
     _handlers.insert(ID_MEDIA_LIST_RSP, [this, parseMediaJson](ReqId id, int len, QByteArray data) {
         Q_UNUSED(len);
-        auto obj = parseMediaJson(id, data);
-        emit sig_media_common_rsp(id, obj);
-        emit sig_media_stream_list(obj.value("streams").toArray());
+        qDebug() << "handle id is: " << id;
+
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
+        if(jsonDoc.isNull())
+        {
+            qDebug() << "Failed to create QJsonDocument.";
+            return;
+        }
+
+        QJsonObject jsonObj = jsonDoc.object();
+        qDebug()<< "data jsonobj is " << jsonObj;
+
+        if(!jsonObj.contains("error"))
+        {
+            int err = ErrorCodes::ERR_JSON;
+            qDebug() << "Login Failed, err is Json Parse Err" << err;
+            return;
+        }
+
+        int error = jsonObj["error"].toInt();
+        if(error != ErrorCodes::SUCCESS)
+        {
+            qDebug() << "Login Failed, err is " << error;
+            return;
+        }
+
+        QJsonArray streams;
+        if (jsonObj.contains("media_list") && jsonObj["media_list"].isArray()) {
+            streams = jsonObj["media_list"].toArray();
+        } else if (jsonObj.contains("media_play_info") && jsonObj["media_play_info"].isString()) {
+            const QString url = jsonObj["media_play_info"].toString();
+            if (!url.isEmpty()) {
+                QJsonObject item;
+                item["stream_id"] = QStringLiteral("cached_last");
+                item["name"] = QStringLiteral("cached_last");
+                item["url"] = url;
+                streams.append(item);
+            }
+        }
+
+        qDebug() << "media list count:" << streams.size();
+        for (const auto& v : streams) {
+            const QJsonObject item = v.toObject();
+            qDebug() << " stream_id:" << item.value("stream_id").toString()
+                     << " url:" << item.value("url").toString();
+        }
+
+        emit sig_media_stream_list(streams);
     });
 
     _handlers.insert(ID_MEDIA_SESSION_LIST_RSP, [this, parseMediaJson](ReqId id, int len, QByteArray data) {

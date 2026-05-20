@@ -107,6 +107,7 @@ void LoginDialog::initHttpHandlers()
         _token = si.Token;
         qDebug()<< "email is " << email << " uid is " << si.Uid <<" host is "
                 << si.Host << " Port is " << si.Port << " Token is " << si.Token;
+        qDebug() << "media_port is: " << media_port << " media_host is: " << media_host;
         emit sig_connect_tcp(si);
 
         if (!media_host.isEmpty() && !media_port.isEmpty()) {

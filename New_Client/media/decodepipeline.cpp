@@ -275,6 +275,12 @@ int DecodePipeline::open(const std::string& url)
     //3、判断数据流是文件还是网络流还是摄像头，来为AVInputFormat变量赋值，后续为打开输入流设置
     AVInputFormat* ifmt = nullptr;
     std::string ifile = url;
+    // file:/// 共 8 个字符（file:// 只有 7 个）；截 7 会留下 "/E:/..." 导致 Windows 上 -22
+    if (ifile.find("file:///") == 0) {
+        ifile = ifile.substr(8);
+    } else if (ifile.find("file://") == 0) {
+        ifile = ifile.substr(7);
+    }
     if (url.rfind("video=", 0) == 0) {
         //当前是win下的摄像头，dshow
         ifmt = av_find_input_format("dshow");

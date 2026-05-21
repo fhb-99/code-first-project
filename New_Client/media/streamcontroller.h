@@ -17,7 +17,7 @@ public:
     void RequestSessionList();
     void CreateSession(const QString& sessionName);
     void JoinSession(const QString& sessionId);
-    void PlayStream(const QString& streamId, const QString& sessionId);
+    void PlayStream(const QString& streamId, const QString& sessionId, const QString& url);
     void StopStream(const QString& sessionId);
 
 private:

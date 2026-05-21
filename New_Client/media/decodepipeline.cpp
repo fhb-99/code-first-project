@@ -142,9 +142,9 @@ static bool looksLikeNetworkUrl(const std::string& s)
     const std::string t = toLower(s);
     //HTTP/RTSP 协议头本身是不区分大小写的，但 C++ 字符串 rfind() 区分大小写！
     return t.rfind("rtsp://", 0) == 0
-        || t.rfind("http://", 0) == 0
-        || t.rfind("https://", 0) == 0
-        || t.rfind("rtmp://", 0) == 0;
+            || t.rfind("http://", 0) == 0
+            || t.rfind("https://", 0) == 0
+            || t.rfind("rtmp://", 0) == 0;
 }
 
 DecodePipeline::DecodePipeline()

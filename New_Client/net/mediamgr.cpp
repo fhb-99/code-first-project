@@ -3,6 +3,8 @@
 #include <QDataStream>
 #include <QDebug>
 #include <QIODevice>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QNetworkProxy>
 
 MediaMgr::MediaMgr():_host(""),_port(0),_b_recv_pending(false),_message_id(0),_message_len(0)
@@ -71,60 +73,165 @@ MediaMgr::~MediaMgr()
 
 void MediaMgr::initHandlers()
 {
-    auto parseMediaJson = [this](ReqId id, const QByteArray& data) -> QJsonObject {
+    _handlers.insert(ID_MEDIA_LIST_RSP, [this](ReqId id, int len, QByteArray data) {
+        Q_UNUSED(len);
+        qDebug() << "handle id is:" << id;
+
         QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
-        if (jsonDoc.isNull() || !jsonDoc.isObject()) {
-            qDebug() << "media json parse failed, id =" << id << " raw =" << data;
-            return QJsonObject();
+        if (jsonDoc.isNull()) {
+            qDebug() << "Failed to create QJsonDocument.";
+            emit sig_media_stream_list(QJsonArray());
+            return;
         }
-        return jsonDoc.object();
-    };
 
-    _handlers.insert(ID_MEDIA_LIST_RSP, [this, parseMediaJson](ReqId id, int len, QByteArray data) {
-        Q_UNUSED(len);
-        auto obj = parseMediaJson(id, data);
-        emit sig_media_common_rsp(id, obj);
-        emit sig_media_stream_list(obj.value("streams").toArray());
+        QJsonObject jsonObj = jsonDoc.object();
+        qDebug() << "data jsonobj is" << jsonObj;
+
+        if (!jsonObj.contains("error")) {
+            qDebug() << "media list rsp missing error field";
+            emit sig_media_stream_list(QJsonArray());
+            return;
+        }
+
+        const int error = jsonObj["error"].toInt();
+        if (error != ErrorCodes::SUCCESS) {
+            qDebug() << "media list rsp failed, error is" << error;
+            emit sig_media_stream_list(QJsonArray());
+            return;
+        }
+
+        QJsonArray streams;
+        if (jsonObj.contains("media_list") && jsonObj["media_list"].isArray()) {
+            streams = jsonObj["media_list"].toArray();
+        } 
+        else if (jsonObj.contains("media_play_info") && jsonObj["media_play_info"].isString()) {
+            const QString url = jsonObj["media_play_info"].toString();
+            if (!url.isEmpty()) {
+                QJsonObject item;
+                item["stream_id"] = QStringLiteral("cached_last");
+                item["name"] = QStringLiteral("cached_last");
+                item["url"] = url;
+                streams.append(item);
+            }
+        }
+
+        qDebug() << "media list count:" << streams.size();
+        for (const auto& v : streams) {
+            const QJsonObject item = v.toObject();
+            qDebug() << " stream_id:" << item.value("stream_id").toString()
+                     << " url:" << item.value("url").toString();
+        }
+
+        emit sig_media_stream_list(streams);
     });
 
-    _handlers.insert(ID_MEDIA_SESSION_LIST_RSP, [this, parseMediaJson](ReqId id, int len, QByteArray data) {
+    _handlers.insert(ID_MEDIA_SESSION_LIST_RSP, [this](ReqId id, int len, QByteArray data) {
         Q_UNUSED(len);
-        auto obj = parseMediaJson(id, data);
-        emit sig_media_common_rsp(id, obj);
-        emit sig_media_session_list(obj.value("sessions").toArray());
+        qDebug() << "handle id is:" << id;
+
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
+        if (jsonDoc.isNull()) {
+            qDebug() << "Failed to create QJsonDocument.";
+            emit sig_media_session_list(QJsonArray());
+            return;
+        }
+
+        QJsonObject jsonObj = jsonDoc.object();
+        if (!jsonObj.contains("error")) {
+            emit sig_media_session_list(QJsonArray());
+            return;
+        }
+
+        const int error = jsonObj["error"].toInt();
+        if (error != ErrorCodes::SUCCESS) {
+            qDebug() << "media session list rsp failed, error is" << error;
+            emit sig_media_session_list(QJsonArray());
+            return;
+        }
+
+        QJsonArray sessions;
+        if (jsonObj.contains("sessions") && jsonObj["sessions"].isArray()) {
+            sessions = jsonObj["sessions"].toArray();
+        }
+        emit sig_media_session_list(sessions);
     });
 
-    _handlers.insert(ID_MEDIA_PLAY_RSP, [this, parseMediaJson](ReqId id, int len, QByteArray data) {
+    _handlers.insert(ID_MEDIA_PLAY_RSP, [this](ReqId id, int len, QByteArray data) {
         Q_UNUSED(len);
-        auto obj = parseMediaJson(id, data);
-        emit sig_media_common_rsp(id, obj);
-        emit sig_media_play_rsp(obj);
+        qDebug() << "handle id is:" << id;
+
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
+        if (jsonDoc.isNull()) {
+            qDebug() << "Failed to create QJsonDocument.";
+            return;
+        }
+
+        QJsonObject jsonObj = jsonDoc.object();
+        if (!jsonObj.contains("error")) {
+            return;
+        }
+
+        const int error = jsonObj["error"].toInt();
+        if (error != ErrorCodes::SUCCESS) {
+            qDebug() << "media play rsp failed, error is" << error;
+            return;
+        }
+
+        emit sig_media_play_rsp(jsonObj);
     });
 
-    _handlers.insert(ID_MEDIA_STOP_RSP, [this, parseMediaJson](ReqId id, int len, QByteArray data) {
+    _handlers.insert(ID_MEDIA_STOP_RSP, [this](ReqId id, int len, QByteArray data) {
         Q_UNUSED(len);
-        auto obj = parseMediaJson(id, data);
-        emit sig_media_common_rsp(id, obj);
-        emit sig_media_stop_rsp(obj);
+        qDebug() << "handle id is:" << id;
+
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
+        if (jsonDoc.isNull()) {
+            qDebug() << "Failed to create QJsonDocument.";
+            return;
+        }
+
+        QJsonObject jsonObj = jsonDoc.object();
+        if (!jsonObj.contains("error")) {
+            return;
+        }
+
+        const int error = jsonObj["error"].toInt();
+        if (error != ErrorCodes::SUCCESS) {
+            qDebug() << "media stop rsp failed, error is" << error;
+            return;
+        }
+
+        emit sig_media_stop_rsp(jsonObj);
     });
 
-    _handlers.insert(ID_MEDIA_SYNC_NOTIFY, [this, parseMediaJson](ReqId id, int len, QByteArray data) {
+    _handlers.insert(ID_MEDIA_SYNC_NOTIFY, [this](ReqId id, int len, QByteArray data) {
         Q_UNUSED(len);
-        auto obj = parseMediaJson(id, data);
-        emit sig_media_common_rsp(id, obj);
-        emit sig_media_sync_notify(obj);
+        qDebug() << "handle id is:" << id;
+
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
+        if (jsonDoc.isNull()) {
+            qDebug() << "Failed to create QJsonDocument.";
+            return;
+        }
+
+        QJsonObject jsonObj = jsonDoc.object();
+        emit sig_media_sync_notify(jsonObj);
     });
 
-    _handlers.insert(ID_MEDIA_CREATE_SESSION_RSP, [this, parseMediaJson](ReqId id, int len, QByteArray data) {
+    _handlers.insert(ID_MEDIA_CREATE_SESSION_RSP, [this](ReqId id, int len, QByteArray data) {
         Q_UNUSED(len);
-        auto obj = parseMediaJson(id, data);
-        emit sig_media_common_rsp(id, obj);
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
+        if (!jsonDoc.isNull() && jsonDoc.isObject()) {
+            emit sig_media_common_rsp(id, jsonDoc.object());
+        }
     });
 
-    _handlers.insert(ID_MEDIA_JOIN_SESSION_RSP, [this, parseMediaJson](ReqId id, int len, QByteArray data) {
+    _handlers.insert(ID_MEDIA_JOIN_SESSION_RSP, [this](ReqId id, int len, QByteArray data) {
         Q_UNUSED(len);
-        auto obj = parseMediaJson(id, data);
-        emit sig_media_common_rsp(id, obj);
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
+        if (!jsonDoc.isNull() && jsonDoc.isObject()) {
+            emit sig_media_common_rsp(id, jsonDoc.object());
+        }
     });
 }
 

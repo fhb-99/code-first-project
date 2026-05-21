@@ -43,9 +43,11 @@ void StreamController::JoinSession(const QString &sessionId)
     emit MediaMgr::GetInstance()->sig_send_data(ID_MEDIA_JOIN_SESSION_REQ, QJsonDocument(obj).toJson(QJsonDocument::Compact));
 }
 
-void StreamController::PlayStream(const QString &streamId, const QString &sessionId)
+void StreamController::PlayStream(const QString &streamId, const QString &sessionId, const QString& url)
 {
     QJsonObject obj;
+    obj["uid"] = UserMgr::GetInstance()->GetUid();
+    obj["url"] = url;
     obj["stream_id"] = streamId;
     obj["session_id"] = sessionId;
     emit MediaMgr::GetInstance()->sig_send_data(ID_MEDIA_PLAY_REQ, QJsonDocument(obj).toJson(QJsonDocument::Compact));

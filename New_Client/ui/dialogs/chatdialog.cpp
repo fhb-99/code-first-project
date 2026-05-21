@@ -1147,7 +1147,7 @@ void ChatDialog::tryStartPlayFromServerList()
     }
 
     ui->media_player_page->SetCurrentStream(_selected_stream_id, selectedUrl);
-    _stream_controller->PlayStream(_selected_stream_id, _selected_session_id);
+    _stream_controller->PlayStream(_selected_stream_id, _selected_session_id, selectedUrl);
     slot_media_status(QStringLiteral("Play request sent"));
 }
 

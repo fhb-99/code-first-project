@@ -57,8 +57,9 @@ enum ReqID
 enum ErrorCodes
 {
     Success = 0,
-    Error_Json = 1001,
-    Error_Redis = 1002,
+    Error_Json = 1,
+    Error_Redis = 2,
+    Error_Mysql = 3
 };
 
 

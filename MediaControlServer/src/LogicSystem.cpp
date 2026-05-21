@@ -122,7 +122,9 @@ void LogicSystem::MediaListHandler(std::shared_ptr<CSession> session, const shor
         session->Send(return_str, ID_MEDIA_LIST_RSP);
     });
 
+    //现在测试，只查数据库
     // Hash key：media_play_info<uid>；列表快速路径读取字段 _last_url（与 MediaPlayHandler 写入一致）
+    /*
     const std::string redisKey = "media_play_info" + std::to_string(uid);
     const std::string media_play_info = RedisMgr::GetInstance()->HGet(redisKey, "_last_url");
     if (!media_play_info.empty())
@@ -150,7 +152,25 @@ void LogicSystem::MediaListHandler(std::shared_ptr<CSession> session, const shor
             media_info["url"] = media->url;
             rtvalue["media_list"].append(media_info);
         }
-    }   
+    }  
+    */
+    
+    std::vector<std::shared_ptr<MediaListInfo>> media_list;
+        const bool success = MysqlMgr::GetInstance()->GetMediaList(uid, media_list);
+        if (!success)
+        {
+            rtvalue["error"] = ErrorCodes::Error_Json;
+            return;
+        }
+        for (auto& media : media_list)
+        {
+            Json::Value media_info;
+            media_info["id"] = media->id;
+            media_info["stream_id"] = media->stream_id;
+            media_info["name"] = media->name;
+            media_info["url"] = media->url;
+            rtvalue["media_list"].append(media_info);
+        }
 }
 
 void LogicSystem::MediaPlayHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
@@ -178,7 +198,17 @@ void LogicSystem::MediaPlayHandler(std::shared_ptr<CSession> session, const shor
     const int uid = root["uid"].asInt();
     const std::string url = root["url"].asString();
     const std::string stream_id = root["stream_id"].asString();
-    const std::string session_id = root["session_id"].asString();
+    std::string session_id = root["session_id"].asString();
+    
+    //如果客户端传来的session_id为空时，则默认
+    if (session_id.empty())
+    {
+        session_id = "default";
+    }
+
+    //打印播放请求中的信息
+    std::cout << "uid: " << uid << "  url: " << url << 
+        "  stream_id:  " << stream_id << "  session_id:  " << session_id << std::endl;
     
     //更新media_session_stream表与media_client_playing表
     bool success = MysqlMgr::GetInstance()->InsertMediaSessionStream(uid, session_id, stream_id, 1);
@@ -211,6 +241,10 @@ void LogicSystem::MediaPlayHandler(std::shared_ptr<CSession> session, const shor
     }
 
     rtvalue["error"] = ErrorCodes::Success;
+    // 回包给客户端的播放信息
+    rtvalue["stream_id"] = stream_id;
+    rtvalue["session_id"] = session_id;
+    rtvalue["play_url"] = url;
 }
 
 
@@ -261,6 +295,8 @@ void LogicSystem::MediaStopHandler(std::shared_ptr<CSession> session, const shor
     (void)RedisMgr::GetInstance()->HDel(redisKey, "_last_url");
 
     rtvalue["error"] = ErrorCodes::Success;
+    rtvalue["stream_id"] = stream_id;
+    rtvalue["session_id"] = session_id;
 }
 
 void LogicSystem::MediaPauseHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)

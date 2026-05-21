@@ -530,7 +530,7 @@ bool MysqlMgr::GetMediaList(int uid, std::vector<std::shared_ptr<MediaListInfo>>
 		while (res->next())
 		{
 			auto media_info = std::make_shared<MediaListInfo>();
-			media_info->id = 0;
+			media_info->id = 0;      //暂时没有这个列
 			media_info->stream_id = res->getString("stream_id");
 			media_info->name = media_info->stream_id;
 			media_info->url = res->getString("url");

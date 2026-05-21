@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QJsonArray>
 #include <QJsonObject>
+#include "usermgr.h"
 #include "global.h"
 
 class StreamController : public QObject
@@ -18,6 +19,9 @@ public:
     void JoinSession(const QString& sessionId);
     void PlayStream(const QString& streamId, const QString& sessionId);
     void StopStream(const QString& sessionId);
+
+private:
+    int _uid;
 
 signals:
     void sig_streams_updated(QJsonArray streams);

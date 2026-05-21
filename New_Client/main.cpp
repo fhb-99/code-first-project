@@ -13,7 +13,7 @@
 // 开发开关：true = 启动后直接进入聊天界面（不经过登录与 ChatServer 鉴权）。
 // 正式发布或需要完整登录流程时改为 false。
 // ---------------------------------------------------------------------------
-static constexpr bool kDevSkipLoginEnterChat = true;
+static constexpr bool kDevSkipLoginEnterChat = false;
 
 static QString findConfigIni()
 {

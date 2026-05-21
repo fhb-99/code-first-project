@@ -552,6 +552,7 @@ void DecodePipeline::stop_decode_worker()
 {
     join_decode_worker(); // decode_quit_ → clear_buf(唤醒阻塞 push) → join
     close();
+    qDebug() << "[DecodePipeline] decode thread leave";
 }
 
 int64_t DecodePipeline::durationMs() const

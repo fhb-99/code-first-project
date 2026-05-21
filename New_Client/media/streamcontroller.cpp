@@ -19,6 +19,7 @@ void StreamController::RequestStreamList(const QString &keyword)
 {
     QJsonObject obj;
     obj["keyword"] = keyword;
+    obj["uid"] = UserMgr::GetInstance()->GetUid();
     emit MediaMgr::GetInstance()->sig_send_data(ID_MEDIA_LIST_REQ, QJsonDocument(obj).toJson(QJsonDocument::Compact));
 }
 

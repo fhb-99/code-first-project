@@ -4,6 +4,9 @@
 
 #include <functional>
 #include <iostream>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
 
 
 
@@ -39,6 +42,14 @@ void LogicSystem::RegisterCallBacks()
         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
     _fun_callbacks[ID_MEDIA_PAUSE_REQ] = std::bind(&LogicSystem::MediaPauseHandler, this,
+        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+
+    //session请求处理
+    _fun_callbacks[ID_MEDIA_SESSION_LIST_REQ] = std::bind(&LogicSystem::MediaSessionListHandler, this,
+        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+    _fun_callbacks[ID_MEDIA_CREATE_SESSION_REQ] = std::bind(&LogicSystem::MediaCreateSessionHandler, this,
+        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+    _fun_callbacks[ID_MEDIA_JOIN_SESSION_REQ] = std::bind(&LogicSystem::MediaJoinSessionHandler, this,
         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 }
 
@@ -305,4 +316,142 @@ void LogicSystem::MediaPauseHandler(std::shared_ptr<CSession> session, const sho
     (void)msg_id;
     (void)msg_data;
     //好像业务上不需要
+}
+
+
+
+void LogicSystem::MediaSessionListHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
+{
+    // 表职责提示：
+    // - media_session：会话元信息/当前状态（session 列表、当前播放流、状态）
+    // - media_session_stream：会话与流的绑定 + 在线人数统计
+    // 会话列表请求仅查 media_session。
+    Json::Reader reader;
+    Json::Value root;
+    reader.parse(msg_data, root);
+
+    Json::Value rtvalue;
+    rtvalue["error"] = ErrorCodes::Success;
+    Defer defer([this, &rtvalue, session]() {
+        std::string return_str = rtvalue.toStyledString();
+        session->Send(return_str, ID_MEDIA_SESSION_LIST_RSP);
+    });
+
+    const int uid = root["uid"].asInt();
+
+    std::vector<std::shared_ptr<SessionInfo>> session_list;
+    const bool success = MysqlMgr::GetInstance()->GetSessionList(uid, session_list);
+    if (!success)
+    {
+        rtvalue["error"] = ErrorCodes::Error_Json;
+        return;
+    }
+    for (auto& session : session_list)
+    {
+        Json::Value session_info;
+        session_info["session_id"] = session->session_id;
+        session_info["owner_id"] = session->owner_id;
+        session_info["current_stream_id"] = session->current_stream_id;
+        session_info["state"] = session->state;
+        rtvalue["sessions"].append(session_info);
+    }
+}
+
+
+void LogicSystem::MediaCreateSessionHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
+{
+    // 创建会话：写 media_session（会话元信息），并初始化 media_session_stream 绑定流。
+    Json::Reader reader;
+    Json::Value root;
+    reader.parse(msg_data, root);
+
+    Json::Value rtvalue;
+    rtvalue["error"] = ErrorCodes::Success;
+    Defer defer([this, &rtvalue, session]() {
+        std::string return_str = rtvalue.toStyledString();
+        session->Send(return_str, ID_MEDIA_CREATE_SESSION_RSP);
+    });
+
+    const int uid = root["uid"].asInt();
+    const std::string stream_id = root["stream_id"].asString();
+    if (stream_id.empty())
+    {
+        rtvalue["error"] = ErrorCodes::Error_StreamID;
+        return;
+    }
+
+    const bool flag = MysqlMgr::GetInstance()->IsStreamIDValid(stream_id);
+    if (!flag)
+    {
+        rtvalue["error"] = ErrorCodes::Error_StreamID;
+        rtvalue["stream_id"] = stream_id;
+        return;
+    }
+
+    const std::string session_id = boost::uuids::to_string(boost::uuids::random_generator()());
+    const bool success = MysqlMgr::GetInstance()->CreateSession(uid, session_id, stream_id, 1);
+    if (!success)
+    {
+        rtvalue["error"] = ErrorCodes::Error_Mysql;
+        return;
+    }
+
+    rtvalue["error"] = ErrorCodes::Success;
+    rtvalue["session_id"] = session_id;
+    rtvalue["stream_id"] = stream_id;
+}
+
+
+void LogicSystem::MediaJoinSessionHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
+{
+    // 加入会话：不改 media_session，仅记录成员状态（当前先落到 media_client_playing）。
+    Json::Reader reader;
+    Json::Value root;
+    reader.parse(msg_data, root);
+
+    Json::Value rtvalue;
+    rtvalue["error"] = ErrorCodes::Success;
+    Defer defer([this, &rtvalue, session]() {
+        std::string return_str = rtvalue.toStyledString();
+        session->Send(return_str, ID_MEDIA_JOIN_SESSION_RSP);
+    });
+    
+    const int uid = root["uid"].asInt();
+    const std::string session_id = root["session_id"].asString();
+    const std::string stream_id = root["stream_id"].asString();
+    if (session_id.empty())
+    {
+        rtvalue["error"] = ErrorCodes::Error_Json;
+        return;
+    }
+    if (stream_id.empty())
+    {
+        rtvalue["error"] = ErrorCodes::Error_StreamID;
+        return;
+    }
+
+    const int owner_id = MysqlMgr::GetInstance()->GetOwnerIDOfSession(session_id);
+    if (owner_id == 0)
+    {
+        rtvalue["error"] = ErrorCodes::Error_Mysql;
+        return;
+    }
+
+    const bool flag = MysqlMgr::GetInstance()->IsStreamIDValid(stream_id);
+    if (!flag)
+    {
+        rtvalue["error"] = ErrorCodes::Error_StreamID;
+        rtvalue["stream_id"] = stream_id;
+        return;
+    }
+
+    const bool success = MysqlMgr::GetInstance()->JoinSession(uid, session_id, stream_id, 0);
+    if (!success)
+    {
+        rtvalue["error"] = ErrorCodes::Error_Mysql;
+        return;
+    }
+
+    rtvalue["session_id"] = session_id;
+    rtvalue["stream_id"] = stream_id;
 }

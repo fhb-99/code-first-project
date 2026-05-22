@@ -13,3 +13,12 @@ struct MediaListInfo{
     int status;
     int owner_id;
 };
+
+
+struct SessionInfo{
+    SessionInfo() : session_id(""), owner_id(0), current_stream_id(""), state(0) {}
+    std::string session_id;
+    int owner_id;
+    std::string current_stream_id;
+    int state;
+};

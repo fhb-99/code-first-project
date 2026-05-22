@@ -132,6 +132,21 @@ public:
     bool InsertMediaSessionStream(int uid, const std::string& session_id, const std::string& stream_id, int state);
     //同时，当有客户端进入房间时，并且播放的是同一个流时，要维护在线人数信息
     bool UpdateMediaSessionOnlineCount(int uid, const std::string& session_id, const std::string& stream_id, bool is_add);
+
+
+    //获取会话列表
+    bool GetSessionList(int uid, std::vector<std::shared_ptr<SessionInfo>>& session_list);
+    //判断客户端传来的stream_id是否在media_stream表中
+    bool IsStreamIDValid(const std::string& stream_id);
+    //创建会话
+    bool CreateSession(int uid, const std::string& session_id, const std::string& stream_id, int state);
+    //加入会话
+    bool JoinSession(int uid, const std::string& session_id, const std::string& stream_id, int state);
+    //获取会话的owner_id
+    int GetOwnerIDOfSession(const std::string& session_id);
+    //根据uid从user表中查询name
+    std::string GetNameByUID(int uid);
+
 private:
     std::unique_ptr<MysqlPool> pool_;
 };

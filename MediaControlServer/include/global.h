@@ -59,7 +59,8 @@ enum ErrorCodes
     Success = 0,
     Error_Json = 1,
     Error_Redis = 2,
-    Error_Mysql = 3
+    Error_Mysql = 3,
+    Error_StreamID = 4
 };
 
 

@@ -743,3 +743,234 @@ bool MysqlMgr::UpdateMediaSessionOnlineCount(int uid, const std::string& session
 		return false;
 	}
 }
+
+
+
+bool MysqlMgr::GetSessionList(int uid, std::vector<std::shared_ptr<SessionInfo>>& session_list)
+{
+	auto con = pool_->getConnection();
+	if(con == nullptr)
+	{
+		return false;
+	}
+
+	Defer defer([this, &con](){
+		pool_->returnConnection(std::move(con));
+	});
+
+	try
+	{
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement(
+			"SELECT session_id, owner_id, current_stream_id, state FROM media_session"
+		));
+
+		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+		while (res->next())
+		{
+			auto session_info = std::make_shared<SessionInfo>();
+			session_info->session_id = res->getString("session_id");
+			session_info->owner_id = res->getInt("owner_id");
+			session_info->current_stream_id = res->getString("current_stream_id");
+			session_info->state = res->getInt("state");
+			session_list.push_back(session_info);
+		}
+		return true;
+	}
+	catch(sql::SQLException& e)
+	{
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}
+
+
+bool MysqlMgr::IsStreamIDValid(const std::string& stream_id)
+{
+	auto con = pool_->getConnection();
+	if(con == nullptr)
+	{
+		return false;
+	}
+
+	Defer defer([this, &con](){
+		pool_->returnConnection(std::move(con));
+	});
+
+	try
+	{
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement(
+			"SELECT COUNT(*) FROM media_stream WHERE stream_id = ?"
+		));
+		pstmt->setString(1, stream_id);
+		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+		if(res->next())
+		{
+			return res->getInt(1) == 1;
+		}
+		return false;
+	}
+	catch(sql::SQLException& e)
+	{
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}
+
+
+std::string MysqlMgr::GetNameByUID(int uid)
+{
+	auto con = pool_->getConnection();
+	if(con == nullptr)
+	{
+		return "";
+	}
+
+	Defer defer([this, &con](){
+		pool_->returnConnection(std::move(con));
+	});
+	
+	try
+	{
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement(
+			"SELECT name FROM user WHERE uid = ?"
+		));
+		pstmt->setInt(1, uid);
+		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+		if(res->next())
+		{
+			return res->getString("name");
+		}
+		return "";
+	}
+	catch(sql::SQLException& e)
+	{
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return "";
+	}
+}
+
+
+bool MysqlMgr::CreateSession(int uid, const std::string& session_id, const std::string& stream_id, int state)
+{
+	auto con = pool_->getConnection();
+	if(con == nullptr)
+	{
+		return false;
+	}
+
+	Defer defer([this, &con](){
+		pool_->returnConnection(std::move(con));
+	});
+
+	try
+	{
+		if(!IsStreamIDValid(stream_id))
+		{
+			return false;
+		}
+
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement(
+			"INSERT INTO media_session (session_id, session_name, owner_id, current_stream_id, state) VALUES (?, ?, ?, ?, ?)"
+		));
+		pstmt->setString(1, session_id);
+		pstmt->setString(2, "房间" + std::to_string(uid) + "号");
+		pstmt->setInt(3, uid);
+		pstmt->setString(4, stream_id);
+		pstmt->setInt(5, state);
+		pstmt->executeUpdate();
+
+		std::unique_ptr<sql::PreparedStatement> pstmt2(con->_con->prepareStatement(
+			"INSERT INTO media_session_stream (session_id, stream_id, owner_id, state) VALUES (?, ?, ?, ?) "
+			"ON DUPLICATE KEY UPDATE owner_id = VALUES(owner_id), state = VALUES(state)"
+		));
+		pstmt2->setString(1, session_id);
+		pstmt2->setString(2, stream_id);
+		pstmt2->setInt(3, uid);
+		pstmt2->setInt(4, state);
+		pstmt2->executeUpdate();
+
+		return true;
+	}
+	catch(sql::SQLException& e)
+	{
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}
+
+
+int MysqlMgr::GetOwnerIDOfSession(const std::string& session_id)
+{
+	auto con = pool_->getConnection();
+	if(con == nullptr)
+	{
+		return 0;
+	}
+
+
+	Defer defer([this, &con](){
+		pool_->returnConnection(std::move(con));
+	});
+
+	try
+	{
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement(
+			"SELECT owner_id FROM media_session WHERE session_id = ?"
+		));
+		pstmt->setString(1, session_id);
+		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+		if(res->next())
+		{
+			return res->getInt("owner_id");
+		}
+		return 0;
+	}
+	catch(sql::SQLException& e)
+	{
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return 0;
+	}
+
+}
+
+
+bool MysqlMgr::JoinSession(int uid, const std::string& session_id, const std::string& stream_id, int state)
+{
+	auto con = pool_->getConnection();
+	if(con == nullptr) 
+	{
+		return false;
+	}
+
+	Defer defer([this, &con](){
+		pool_->returnConnection(std::move(con));
+	});
+
+	try
+	{
+		const int owner_id = GetOwnerIDOfSession(session_id);
+		if(owner_id == 0)
+		{
+			return false;
+		}
+
+		return InsertMediaClientPlaying(uid, session_id, stream_id, state);
+	}
+	catch(sql::SQLException& e)
+	{
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}

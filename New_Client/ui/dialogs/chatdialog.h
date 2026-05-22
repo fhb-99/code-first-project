@@ -41,6 +41,7 @@ protected:
     void UpdateChatMsg(std::vector<std::shared_ptr<TextChatData>> msgdata);
     
 private:
+    bool isStreamIdPlayable(const QString& streamId) const;
     void AddLBGroup(StateWidget* lb);
     void addChatUserList();
     void loadMoreChatUser();

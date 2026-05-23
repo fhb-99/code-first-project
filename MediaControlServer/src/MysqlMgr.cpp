@@ -585,6 +585,39 @@ bool MysqlMgr::GetStreamInfo(int uid, std::string& stream_id)
 	}
 }
 
+bool MysqlMgr::GetStreamUrl(const std::string& stream_id, std::string& url)
+{
+	auto con = pool_->getConnection();
+	if (con == nullptr) {
+		return false;
+	}
+
+	Defer defer([this, &con]() {
+		pool_->returnConnection(std::move(con));
+	});
+
+	try {
+		// media_stream 表以 stream_id 为主键，直接精确查询
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement(
+			"SELECT url FROM media_stream WHERE stream_id = ?"
+		));
+		pstmt->setString(1, stream_id);
+		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+		if (res->next()) {
+			url = res->getString("url");
+			return true;
+		}
+		return false;
+	}
+	catch (sql::SQLException& e) {
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}
+
+
 
 
 
@@ -761,7 +794,7 @@ bool MysqlMgr::GetSessionList(int uid, std::vector<std::shared_ptr<SessionInfo>>
 	try
 	{
 		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement(
-			"SELECT session_id, owner_id, current_stream_id, state FROM media_session"
+			"SELECT session_id, session_name, owner_id, current_stream_id, current_pos_ms, sync_version, state FROM media_session"
 		));
 
 		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
@@ -769,8 +802,11 @@ bool MysqlMgr::GetSessionList(int uid, std::vector<std::shared_ptr<SessionInfo>>
 		{
 			auto session_info = std::make_shared<SessionInfo>();
 			session_info->session_id = res->getString("session_id");
+			session_info->session_name = res->getString("session_name");
 			session_info->owner_id = res->getInt("owner_id");
 			session_info->current_stream_id = res->getString("current_stream_id");
+			session_info->current_pos_ms = res->getInt64("current_pos_ms");
+			session_info->sync_version = res->getInt("sync_version");
 			session_info->state = res->getInt("state");
 			session_list.push_back(session_info);
 		}
@@ -856,7 +892,7 @@ std::string MysqlMgr::GetNameByUID(int uid)
 }
 
 
-bool MysqlMgr::CreateSession(int uid, const std::string& session_id, const std::string& stream_id, int state)
+bool MysqlMgr::CreateSession(int uid, const std::string& session_id, const std::string& session_name, const std::string& stream_id, int state)
 {
 	auto con = pool_->getConnection();
 	if(con == nullptr)
@@ -879,7 +915,7 @@ bool MysqlMgr::CreateSession(int uid, const std::string& session_id, const std::
 			"INSERT INTO media_session (session_id, session_name, owner_id, current_stream_id, state) VALUES (?, ?, ?, ?, ?)"
 		));
 		pstmt->setString(1, session_id);
-		pstmt->setString(2, "房间" + std::to_string(uid) + "号");
+		pstmt->setString(2, session_name.empty() ? "房间" + std::to_string(uid) + "号" : session_name);
 		pstmt->setInt(3, uid);
 		pstmt->setString(4, stream_id);
 		pstmt->setInt(5, state);
@@ -968,6 +1004,161 @@ bool MysqlMgr::JoinSession(int uid, const std::string& session_id, const std::st
 	}
 	catch(sql::SQLException& e)
 	{
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}
+bool MysqlMgr::GetSessionMembers(const std::string& session_id, std::vector<std::shared_ptr<SessionMemberInfo>>& members)
+{
+	auto con = pool_->getConnection();
+	if (con == nullptr) {
+		return false;
+	}
+
+	Defer defer([this, &con]() {
+		pool_->returnConnection(std::move(con));
+	});
+
+	try {
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement(
+			"SELECT uid, session_id FROM media_session_member WHERE session_id = ?"
+		));
+		pstmt->setString(1, session_id);
+		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+		while (res->next()) {
+			auto member = std::make_shared<SessionMemberInfo>();
+			member->uid = res->getInt("uid");
+			member->session_id = res->getString("session_id");
+			members.push_back(member);
+		}
+		return true;
+	}
+	catch (sql::SQLException& e) {
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}
+
+
+bool MysqlMgr::AddSessionMember(int uid, const std::string& session_id)
+{
+	auto con = pool_->getConnection();
+	if (con == nullptr) {
+		return false;
+	}
+
+	Defer defer([this, &con]() {
+		pool_->returnConnection(std::move(con));
+	});
+
+	try {
+		// ON DUPLICATE KEY 保证幂等：重复加入同一会话不会报错
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement(
+			"INSERT INTO media_session_member (session_id, uid) VALUES (?, ?) "
+			"ON DUPLICATE KEY UPDATE last_heartbeat = CURRENT_TIMESTAMP"
+		));
+		pstmt->setString(1, session_id);
+		pstmt->setInt(2, uid);
+		pstmt->executeUpdate();
+		return true;
+	}
+	catch (sql::SQLException& e) {
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}
+
+
+bool MysqlMgr::RemoveSessionMember(int uid, const std::string& session_id)
+{
+	auto con = pool_->getConnection();
+	if (con == nullptr) {
+		return false;
+	}
+
+	Defer defer([this, &con]() {
+		pool_->returnConnection(std::move(con));
+	});
+
+	try {
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement(
+			"DELETE FROM media_session_member WHERE session_id = ? AND uid = ?"
+		));
+		pstmt->setString(1, session_id);
+		pstmt->setInt(2, uid);
+		pstmt->executeUpdate();
+		return true;
+	}
+	catch (sql::SQLException& e) {
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}
+
+
+bool MysqlMgr::UpdateSessionPlayState(const std::string& session_id, const std::string& stream_id, int state, long long pos_ms)
+{
+	auto con = pool_->getConnection();
+	if (con == nullptr) {
+		return false;
+	}
+
+	Defer defer([this, &con]() {
+		pool_->returnConnection(std::move(con));
+	});
+
+	try {
+		// 更新播放状态并自增 sync_version，用于客户端判断状态是否变更
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement(
+			"UPDATE media_session SET current_stream_id = ?, current_pos_ms = ?, state = ?, "
+			"sync_version = sync_version + 1 WHERE session_id = ?"
+		));
+		pstmt->setString(1, stream_id);
+		pstmt->setInt64(2, pos_ms);
+		pstmt->setInt(3, state);
+		pstmt->setString(4, session_id);
+		pstmt->executeUpdate();
+		return true;
+	}
+	catch (sql::SQLException& e) {
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}
+
+
+bool MysqlMgr::UpdateMemberHeartbeat(int uid, const std::string& session_id)
+{
+	auto con = pool_->getConnection();
+	if (con == nullptr) {
+		return false;
+	}
+
+	Defer defer([this, &con]() {
+		pool_->returnConnection(std::move(con));
+	});
+
+	try {
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement(
+			"UPDATE media_session_member SET last_heartbeat = CURRENT_TIMESTAMP "
+			"WHERE session_id = ? AND uid = ?"
+		));
+		pstmt->setString(1, session_id);
+		pstmt->setInt(2, uid);
+		pstmt->executeUpdate();
+		return true;
+	}
+	catch (sql::SQLException& e) {
 		std::cerr << "SQLException: " << e.what();
 		std::cerr << " (MySQL error code: " << e.getErrorCode();
 		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;

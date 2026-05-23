@@ -1,13 +1,14 @@
 #include "LogicSystem.h"
 #include "MysqlMgr.h"
 #include "RedisMgr.h"
+#include "UserMgr.h"
 
 #include <functional>
 #include <iostream>
+#include <chrono>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
-
 
 
 LogicSystem::LogicSystem()
@@ -44,12 +45,16 @@ void LogicSystem::RegisterCallBacks()
     _fun_callbacks[ID_MEDIA_PAUSE_REQ] = std::bind(&LogicSystem::MediaPauseHandler, this,
         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
-    //session请求处理
+    // session 请求处理
     _fun_callbacks[ID_MEDIA_SESSION_LIST_REQ] = std::bind(&LogicSystem::MediaSessionListHandler, this,
         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
     _fun_callbacks[ID_MEDIA_CREATE_SESSION_REQ] = std::bind(&LogicSystem::MediaCreateSessionHandler, this,
         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
     _fun_callbacks[ID_MEDIA_JOIN_SESSION_REQ] = std::bind(&LogicSystem::MediaJoinSessionHandler, this,
+        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+
+    // 心跳请求处理
+    _fun_callbacks[ID_MEDIA_HEARTBEAT_REQ] = std::bind(&LogicSystem::MediaHeartbeatHandler, this,
         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 }
 
@@ -110,7 +115,9 @@ void LogicSystem::DealMsg()
 }
 
 
-
+// ============================================================================
+// 媒体列表请求处理
+// ============================================================================
 void LogicSystem::MediaListHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
 {
     (void)msg_id;
@@ -125,6 +132,8 @@ void LogicSystem::MediaListHandler(std::shared_ptr<CSession> session, const shor
     }
 
     const int uid = root["uid"].asInt();
+	// 将 uid 与当前 TCP 连接绑定，供广播同步通知时查找目标连接
+	UserMgr::GetInstance()->SetUserSession(uid, session);
 
     Json::Value rtvalue;
     rtvalue["error"] = ErrorCodes::Success;
@@ -133,57 +142,28 @@ void LogicSystem::MediaListHandler(std::shared_ptr<CSession> session, const shor
         session->Send(return_str, ID_MEDIA_LIST_RSP);
     });
 
-    //现在测试，只查数据库
-    // Hash key：media_play_info<uid>；列表快速路径读取字段 _last_url（与 MediaPlayHandler 写入一致）
-    /*
-    const std::string redisKey = "media_play_info" + std::to_string(uid);
-    const std::string media_play_info = RedisMgr::GetInstance()->HGet(redisKey, "_last_url");
-    if (!media_play_info.empty())
+    std::vector<std::shared_ptr<MediaListInfo>> media_list;
+    const bool success = MysqlMgr::GetInstance()->GetMediaList(uid, media_list);
+    if (!success)
     {
-        rtvalue["error"] = ErrorCodes::Success;
-        rtvalue["media_play_info"] = media_play_info;
+        rtvalue["error"] = ErrorCodes::Error_Json;
         return;
     }
-    else
+    for (auto& media : media_list)
     {
-        //如果redis当中不存在，则查询数据库
-        std::vector<std::shared_ptr<MediaListInfo>> media_list;
-        const bool success = MysqlMgr::GetInstance()->GetMediaList(uid, media_list);
-        if (!success)
-        {
-            rtvalue["error"] = ErrorCodes::Error_Json;
-            return;
-        }
-        for (auto& media : media_list)
-        {
-            Json::Value media_info;
-            media_info["id"] = media->id;
-            media_info["stream_id"] = media->stream_id;
-            media_info["name"] = media->name;
-            media_info["url"] = media->url;
-            rtvalue["media_list"].append(media_info);
-        }
-    }  
-    */
-    
-    std::vector<std::shared_ptr<MediaListInfo>> media_list;
-        const bool success = MysqlMgr::GetInstance()->GetMediaList(uid, media_list);
-        if (!success)
-        {
-            rtvalue["error"] = ErrorCodes::Error_Json;
-            return;
-        }
-        for (auto& media : media_list)
-        {
-            Json::Value media_info;
-            media_info["id"] = media->id;
-            media_info["stream_id"] = media->stream_id;
-            media_info["name"] = media->name;
-            media_info["url"] = media->url;
-            rtvalue["media_list"].append(media_info);
-        }
+        Json::Value media_info;
+        media_info["id"] = media->id;
+        media_info["stream_id"] = media->stream_id;
+        media_info["name"] = media->name;
+        media_info["url"] = media->url;
+        rtvalue["media_list"].append(media_info);
+    }
 }
 
+
+// ============================================================================
+// 播放请求处理 — 仅 session owner 有权控制播放，操作后广播同步通知
+// ============================================================================
 void LogicSystem::MediaPlayHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
 {
     (void)msg_id;
@@ -204,24 +184,34 @@ void LogicSystem::MediaPlayHandler(std::shared_ptr<CSession> session, const shor
         session->Send(return_str, ID_MEDIA_PLAY_RSP);
     });
 
-    //根据客户端传来的要播放的url，uid以及stream_id，
-    // 在数据库中查询session_id；迁移脚本无 session 表，来自 media_client_playing（无记录则失败，需先写入播放会话）
     const int uid = root["uid"].asInt();
+	// 将 uid 与当前 TCP 连接绑定，供广播同步通知时查找目标连接
+	UserMgr::GetInstance()->SetUserSession(uid, session);
     const std::string url = root["url"].asString();
     const std::string stream_id = root["stream_id"].asString();
     std::string session_id = root["session_id"].asString();
-    
-    //如果客户端传来的session_id为空时，则默认
+
+    // 未指定会话时走 default（单人模式，不广播）
     if (session_id.empty())
     {
         session_id = "default";
     }
 
-    //打印播放请求中的信息
-    std::cout << "uid: " << uid << "  url: " << url << 
-        "  stream_id:  " << stream_id << "  session_id:  " << session_id << std::endl;
-    
-    //更新media_session_stream表与media_client_playing表
+    std::cout << "[MediaPlay] uid: " << uid << " url: " << url
+              << " stream_id: " << stream_id << " session_id: " << session_id << std::endl;
+
+    // 非 default 会话：校验 owner 权限
+    if (session_id != "default")
+    {
+        if (!IsSessionOwner(uid, session_id))
+        {
+            rtvalue["error"] = ErrorCodes::Error_NotOwner;
+            std::cout << "[MediaPlay] uid " << uid << " is not owner of session " << session_id << std::endl;
+            return;
+        }
+    }
+
+    // 更新 media_session_stream 表与 media_client_playing 表
     bool success = MysqlMgr::GetInstance()->InsertMediaSessionStream(uid, session_id, stream_id, 1);
     bool success2 = MysqlMgr::GetInstance()->InsertMediaClientPlaying(uid, session_id, stream_id, 1);
     if (!success || !success2)
@@ -229,8 +219,8 @@ void LogicSystem::MediaPlayHandler(std::shared_ptr<CSession> session, const shor
         rtvalue["error"] = ErrorCodes::Error_Json;
         return;
     }
-    
-    //更新完后，在线人数加一
+
+    // 在线人数加一
     bool success3 = MysqlMgr::GetInstance()->UpdateMediaSessionOnlineCount(uid, session_id, stream_id, true);
     if (!success3)
     {
@@ -238,7 +228,13 @@ void LogicSystem::MediaPlayHandler(std::shared_ptr<CSession> session, const shor
         return;
     }
 
-    //存入到redis当中（主字段为 session_id；_last_url 供媒体列表快速路径）
+    // 更新 media_session 播放状态（position_ms 从 0 开始）
+    if (session_id != "default")
+    {
+        MysqlMgr::GetInstance()->UpdateSessionPlayState(session_id, stream_id, 1, 0);
+    }
+
+    // 存入 redis
     const std::string redisKey = "media_play_info" + std::to_string(uid);
     bool flag = RedisMgr::GetInstance()->HSet(redisKey, session_id, url);
     if (flag)
@@ -251,14 +247,22 @@ void LogicSystem::MediaPlayHandler(std::shared_ptr<CSession> session, const shor
         return;
     }
 
+    // 非 default 会话：向所有成员广播同步通知
+    if (session_id != "default")
+    {
+        BroadcastSyncNotify(session_id, stream_id, "play", 0, uid);
+    }
+
     rtvalue["error"] = ErrorCodes::Success;
-    // 回包给客户端的播放信息
     rtvalue["stream_id"] = stream_id;
     rtvalue["session_id"] = session_id;
     rtvalue["play_url"] = url;
 }
 
 
+// ============================================================================
+// 停止播放处理
+// ============================================================================
 void LogicSystem::MediaStopHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
 {
     (void)msg_id;
@@ -280,10 +284,30 @@ void LogicSystem::MediaStopHandler(std::shared_ptr<CSession> session, const shor
     });
 
     const int uid = root["uid"].asInt();
+	// 将 uid 与当前 TCP 连接绑定，供广播同步通知时查找目标连接
+	UserMgr::GetInstance()->SetUserSession(uid, session);
     const std::string session_id = root["session_id"].asString();
     const std::string stream_id = root["stream_id"].asString();
 
-    //更新media_session_stream表与media_client_playing表
+	// 拒绝空 session_id：合法值只能是 "default" 或真实会话 ID
+	if (session_id.empty())
+	{
+		rtvalue["error"] = ErrorCodes::Error_Json;
+		return;
+	}
+
+    // 非 default 会话：校验 owner 权限
+    if (session_id != "default" && !session_id.empty())
+    {
+        if (!IsSessionOwner(uid, session_id))
+        {
+            rtvalue["error"] = ErrorCodes::Error_NotOwner;
+            std::cout << "[MediaStop] uid " << uid << " is not owner of session " << session_id << std::endl;
+            return;
+        }
+    }
+
+    // 更新状态为 stopped(0)
     bool success = MysqlMgr::GetInstance()->InsertMediaSessionStream(uid, session_id, stream_id, 0);
     bool success2 = MysqlMgr::GetInstance()->InsertMediaClientPlaying(uid, session_id, stream_id, 0);
     if (!success || !success2)
@@ -292,7 +316,7 @@ void LogicSystem::MediaStopHandler(std::shared_ptr<CSession> session, const shor
         return;
     }
 
-    //更新完后，在线人数减一
+    // 在线人数减一
     bool success3 = MysqlMgr::GetInstance()->UpdateMediaSessionOnlineCount(uid, session_id, stream_id, false);
     if (!success3)
     {
@@ -300,32 +324,100 @@ void LogicSystem::MediaStopHandler(std::shared_ptr<CSession> session, const shor
         return;
     }
 
-    //从 redis 删除会话字段与列表缓存字段（失败不阻断，DB 已更新）
+    // 更新 media_session 播放状态
+    if (session_id != "default" && !session_id.empty())
+    {
+        MysqlMgr::GetInstance()->UpdateSessionPlayState(session_id, stream_id, 0, 0);
+    }
+
+    // 从 redis 删除会话字段
     const std::string redisKey = "media_play_info" + std::to_string(uid);
     (void)RedisMgr::GetInstance()->HDel(redisKey, session_id);
     (void)RedisMgr::GetInstance()->HDel(redisKey, "_last_url");
+
+    // 非 default 会话：广播同步通知
+    if (session_id != "default" && !session_id.empty())
+    {
+        BroadcastSyncNotify(session_id, stream_id, "stop", 0, uid);
+    }
 
     rtvalue["error"] = ErrorCodes::Success;
     rtvalue["stream_id"] = stream_id;
     rtvalue["session_id"] = session_id;
 }
 
+
+// ============================================================================
+// 暂停播放处理 — 仅 owner 可操作，暂停后广播同步通知
+// ============================================================================
 void LogicSystem::MediaPauseHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
 {
-    (void)session;
     (void)msg_id;
-    (void)msg_data;
-    //好像业务上不需要
+    Json::Reader reader;
+    Json::Value root;
+    if (!reader.parse(msg_data, root) || !root.isObject())
+    {
+        Json::Value err;
+        err["error"] = ErrorCodes::Error_Json;
+        session->Send(err.toStyledString(), ID_MEDIA_PAUSE_RSP);
+        return;
+    }
+
+    Json::Value rtvalue;
+    rtvalue["error"] = ErrorCodes::Success;
+    Defer defer([this, &rtvalue, session]() {
+        std::string return_str = rtvalue.toStyledString();
+        session->Send(return_str, ID_MEDIA_PAUSE_RSP);
+    });
+
+    const int uid = root["uid"].asInt();
+	// 将 uid 与当前 TCP 连接绑定，供广播同步通知时查找目标连接
+	UserMgr::GetInstance()->SetUserSession(uid, session);
+    const std::string session_id = root["session_id"].asString();
+    const std::string stream_id = root["stream_id"].asString();
+    const long long pos_ms = root.get("position_ms", 0).asInt64();
+	// paused=true 表示暂停, false 表示恢复播放
+	const bool paused = root.get("paused", true).asBool();
+	const int target_state = paused ? 2 : 1;
+	const std::string action = paused ? "pause" : "play";
+
+    // 非 default 会话：校验 owner 权限
+    if (session_id != "default" && !session_id.empty())
+    {
+        if (!IsSessionOwner(uid, session_id))
+        {
+            rtvalue["error"] = ErrorCodes::Error_NotOwner;
+            std::cout << "[MediaPause] uid " << uid << " is not owner of session " << session_id << std::endl;
+            return;
+        }
+    }
+
+    // 更新播放状态为 paused(2)，记录当前位置
+    bool success = MysqlMgr::GetInstance()->UpdateMediaPlayStatus(uid, session_id, stream_id, target_state);
+    if (!success)
+    {
+        rtvalue["error"] = ErrorCodes::Error_Mysql;
+        return;
+    }
+
+    if (session_id != "default" && !session_id.empty())
+    {
+        MysqlMgr::GetInstance()->UpdateSessionPlayState(session_id, stream_id, target_state, pos_ms);
+        BroadcastSyncNotify(session_id, stream_id, action, pos_ms, uid);
+    }
+
+    rtvalue["error"] = ErrorCodes::Success;
+    rtvalue["session_id"] = session_id;
+    rtvalue["stream_id"] = stream_id;
+    rtvalue["position_ms"] = static_cast<Json::Int64>(pos_ms);
 }
 
 
-
+// ============================================================================
+// 会话列表请求处理
+// ============================================================================
 void LogicSystem::MediaSessionListHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
 {
-    // 表职责提示：
-    // - media_session：会话元信息/当前状态（session 列表、当前播放流、状态）
-    // - media_session_stream：会话与流的绑定 + 在线人数统计
-    // 会话列表请求仅查 media_session。
     Json::Reader reader;
     Json::Value root;
     reader.parse(msg_data, root);
@@ -346,21 +438,26 @@ void LogicSystem::MediaSessionListHandler(std::shared_ptr<CSession> session, con
         rtvalue["error"] = ErrorCodes::Error_Json;
         return;
     }
-    for (auto& session : session_list)
+    for (auto& s : session_list)
     {
-        Json::Value session_info;
-        session_info["session_id"] = session->session_id;
-        session_info["owner_id"] = session->owner_id;
-        session_info["current_stream_id"] = session->current_stream_id;
-        session_info["state"] = session->state;
-        rtvalue["sessions"].append(session_info);
+        Json::Value item;
+        item["session_id"] = s->session_id;
+        item["session_name"] = s->session_name;
+        item["owner_id"] = s->owner_id;
+        item["current_stream_id"] = s->current_stream_id;
+        item["current_pos_ms"] = static_cast<Json::Int64>(s->current_pos_ms);
+        item["sync_version"] = s->sync_version;
+        item["state"] = s->state;
+        rtvalue["sessions"].append(item);
     }
 }
 
 
+// ============================================================================
+// 创建会话处理 — 写入 media_session 并将会话创建者加入成员表
+// ============================================================================
 void LogicSystem::MediaCreateSessionHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
 {
-    // 创建会话：写 media_session（会话元信息），并初始化 media_session_stream 绑定流。
     Json::Reader reader;
     Json::Value root;
     reader.parse(msg_data, root);
@@ -373,7 +470,10 @@ void LogicSystem::MediaCreateSessionHandler(std::shared_ptr<CSession> session, c
     });
 
     const int uid = root["uid"].asInt();
+	// 将 uid 与当前 TCP 连接绑定，供广播同步通知时查找目标连接
+	UserMgr::GetInstance()->SetUserSession(uid, session);
     const std::string stream_id = root["stream_id"].asString();
+    const std::string session_name = root.get("session_name", "").asString();
     if (stream_id.empty())
     {
         rtvalue["error"] = ErrorCodes::Error_StreamID;
@@ -389,12 +489,15 @@ void LogicSystem::MediaCreateSessionHandler(std::shared_ptr<CSession> session, c
     }
 
     const std::string session_id = boost::uuids::to_string(boost::uuids::random_generator()());
-    const bool success = MysqlMgr::GetInstance()->CreateSession(uid, session_id, stream_id, 1);
+    const bool success = MysqlMgr::GetInstance()->CreateSession(uid, session_id, session_name, stream_id, 1);
     if (!success)
     {
         rtvalue["error"] = ErrorCodes::Error_Mysql;
         return;
     }
+
+    // 将会话创建者加入成员表
+    MysqlMgr::GetInstance()->AddSessionMember(uid, session_id);
 
     rtvalue["error"] = ErrorCodes::Success;
     rtvalue["session_id"] = session_id;
@@ -402,9 +505,11 @@ void LogicSystem::MediaCreateSessionHandler(std::shared_ptr<CSession> session, c
 }
 
 
+// ============================================================================
+// 加入会话处理 — 写入成员表并返回当前会话播放状态，便于客户端同步
+// ============================================================================
 void LogicSystem::MediaJoinSessionHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
 {
-    // 加入会话：不改 media_session，仅记录成员状态（当前先落到 media_client_playing）。
     Json::Reader reader;
     Json::Value root;
     reader.parse(msg_data, root);
@@ -415,8 +520,10 @@ void LogicSystem::MediaJoinSessionHandler(std::shared_ptr<CSession> session, con
         std::string return_str = rtvalue.toStyledString();
         session->Send(return_str, ID_MEDIA_JOIN_SESSION_RSP);
     });
-    
+
     const int uid = root["uid"].asInt();
+	// 将 uid 与当前 TCP 连接绑定，供广播同步通知时查找目标连接
+	UserMgr::GetInstance()->SetUserSession(uid, session);
     const std::string session_id = root["session_id"].asString();
     const std::string stream_id = root["stream_id"].asString();
     if (session_id.empty())
@@ -433,7 +540,7 @@ void LogicSystem::MediaJoinSessionHandler(std::shared_ptr<CSession> session, con
     const int owner_id = MysqlMgr::GetInstance()->GetOwnerIDOfSession(session_id);
     if (owner_id == 0)
     {
-        rtvalue["error"] = ErrorCodes::Error_Mysql;
+        rtvalue["error"] = ErrorCodes::Error_SessionNotFound;
         return;
     }
 
@@ -452,6 +559,141 @@ void LogicSystem::MediaJoinSessionHandler(std::shared_ptr<CSession> session, con
         return;
     }
 
+    // 加入成员表并增加在线人数
+    MysqlMgr::GetInstance()->AddSessionMember(uid, session_id);
+    MysqlMgr::GetInstance()->UpdateMediaSessionOnlineCount(uid, session_id, stream_id, true);
+
+    // 回包附带当前会话播放状态，便于客户端同步到最新位置
+    std::vector<std::shared_ptr<SessionInfo>> session_list;
+    if (MysqlMgr::GetInstance()->GetSessionList(uid, session_list))
+    {
+        for (auto& s : session_list)
+        {
+            if (s->session_id == session_id)
+            {
+                rtvalue["current_stream_id"] = s->current_stream_id;
+                rtvalue["current_pos_ms"] = static_cast<Json::Int64>(s->current_pos_ms);
+                rtvalue["state"] = s->state;
+                break;
+            }
+        }
+    }
+
     rtvalue["session_id"] = session_id;
     rtvalue["stream_id"] = stream_id;
+}
+
+
+// ============================================================================
+// 心跳请求处理 — 更新成员最近心跳时间，用于在线状态管理
+// ============================================================================
+void LogicSystem::MediaHeartbeatHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data)
+{
+    (void)msg_id;
+    Json::Reader reader;
+    Json::Value root;
+    if (!reader.parse(msg_data, root) || !root.isObject())
+    {
+        Json::Value err;
+        err["error"] = ErrorCodes::Error_Json;
+        session->Send(err.toStyledString(), ID_MEDIA_HEARTBEAT_RSP);
+        return;
+    }
+
+    const int uid = root["uid"].asInt();
+	// 将 uid 与当前 TCP 连接绑定，供广播同步通知时查找目标连接
+	UserMgr::GetInstance()->SetUserSession(uid, session);
+    const std::string session_id = root["session_id"].asString();
+
+    if (!session_id.empty())
+    {
+        MysqlMgr::GetInstance()->UpdateMemberHeartbeat(uid, session_id);
+    }
+
+    Json::Value rtvalue;
+    rtvalue["error"] = ErrorCodes::Success;
+    session->Send(rtvalue.toStyledString(), ID_MEDIA_HEARTBEAT_RSP);
+}
+
+
+// ============================================================================
+// 辅助方法：判断 uid 是否为指定会话的 owner
+// ============================================================================
+bool LogicSystem::IsSessionOwner(int uid, const std::string& session_id)
+{
+    const int owner_id = MysqlMgr::GetInstance()->GetOwnerIDOfSession(session_id);
+    return owner_id == uid;
+}
+
+
+// ============================================================================
+// 辅助方法：向会话内所有成员广播同步通知
+// 同步通知格式（与客户端 StreamController::slot_on_media_sync_notify 对齐）：
+// {
+//   "session_id": "...",
+//   "stream_id": "...",
+	//   "play_url": "file:///...",
+//   "action": "play|pause|seek|stop",
+//   "position_ms": 123456,
+//   "server_ts_ms": 1710000000000,
+//   "operator_uid": 10001
+// }
+// ============================================================================
+void LogicSystem::BroadcastSyncNotify(const std::string& session_id, const std::string& stream_id,
+                                       const std::string& action, long long position_ms, int operator_uid)
+{
+    // 查询会话内所有成员
+    std::vector<std::shared_ptr<SessionMemberInfo>> members;
+    if (!MysqlMgr::GetInstance()->GetSessionMembers(session_id, members))
+    {
+        std::cout << "[BroadcastSync] failed to get members for session " << session_id << std::endl;
+        return;
+    }
+
+    if (members.empty())
+    {
+        std::cout << "[BroadcastSync] no members in session " << session_id << std::endl;
+        return;
+    }
+
+    // 构造同步通知 JSON
+    Json::Value notify;
+
+	// 根据 stream_id 查询播放 URL，填充 play_url 字段供客户端直接播放
+	std::string play_url;
+	if (!MysqlMgr::GetInstance()->GetStreamUrl(stream_id, play_url))
+	{
+		std::cout << "[BroadcastSync] failed to get url for stream_id=" << stream_id << std::endl;
+		// 查询失败不阻断广播，客户端可根据 stream_id 自行匹配 URL
+	}
+
+    notify["session_id"] = session_id;
+    notify["stream_id"] = stream_id;
+	notify["play_url"] = play_url;
+    notify["action"] = action;
+    notify["position_ms"] = static_cast<Json::Int64>(position_ms);
+    notify["server_ts_ms"] = static_cast<Json::Int64>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    notify["operator_uid"] = operator_uid;
+
+    const std::string notify_str = notify.toStyledString();
+
+    // 向每个在线成员推送同步通知
+    for (auto& member : members)
+    {
+        // 跳过操作者本人（操作者已通过 RSP 消息确认，无需重复通知）
+        if (member->uid == operator_uid)
+        {
+            continue;
+        }
+
+        auto member_session = UserMgr::GetInstance()->GetSession(member->uid);
+        if (member_session)
+        {
+            std::cout << "[BroadcastSync] push " << action << " to uid=" << member->uid
+                      << " for session " << session_id << std::endl;
+            member_session->Send(notify_str, ID_MEDIA_SYNC_NOTIFY);
+        }
+    }
 }

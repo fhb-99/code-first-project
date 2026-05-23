@@ -26,6 +26,8 @@
 #include <QFileDialog>
 #include <QHeaderView>
 #include <QComboBox>
+#include <QInputDialog>
+#include <QMessageBox>
 #include <QTableWidget>
 #include <QVBoxLayout>
 
@@ -884,9 +886,34 @@ void ChatDialog::slot_media_stream_search()
 
 void ChatDialog::slot_media_create_session()
 {
-    const QString sid = QString("room_%1").arg(QDateTime::currentMSecsSinceEpoch() % 100000);
-    _stream_controller->CreateSession(sid);
-    slot_media_status(QString("创建会话请求: %1").arg(sid));
+    while (true) {
+        bool ok = false;
+        const QString streamId = QInputDialog::getText(
+            this,
+            QStringLiteral("创建会话"),
+            QStringLiteral("请输入 stream_id（必须在可播放流列表中）"),
+            QLineEdit::Normal,
+            _selected_stream_id,
+            &ok).trimmed();
+        if (!ok) {
+            return;
+        }
+
+        if (streamId.isEmpty()) {
+            QMessageBox::warning(this, QStringLiteral("无效输入"), QStringLiteral("stream_id 不能为空，请重新输入。"));
+            continue;
+        }
+
+        if (!isStreamIdPlayable(streamId)) {
+            QMessageBox::warning(this, QStringLiteral("无效输入"), QStringLiteral("stream_id 不存在于可播放流列表，请重新输入。"));
+            continue;
+        }
+
+        // 通信处理由 StreamController 负责，便于后续扩展。
+        _stream_controller->CreateSession(streamId);
+        slot_media_status(QString("创建会话请求: %1").arg(streamId));
+        return;
+    }
 }
 
 void ChatDialog::slot_media_join_session()
@@ -998,6 +1025,34 @@ void ChatDialog::slot_media_sync_play(QString streamId, QString playUrl, QString
 void ChatDialog::slot_media_status(QString text)
 {
     ui->media_player_page->SetStatusText(QString("Status: %1").arg(text));
+}
+
+bool ChatDialog::isStreamIdPlayable(const QString& streamId) const
+{
+    if (streamId.isEmpty()) {
+        return false;
+    }
+
+    // 优先使用最新的服务端列表，避免与 UI 状态耦合。
+    if (!_latest_streams.isEmpty()) {
+        for (const auto& value : _latest_streams) {
+            const QJsonObject obj = value.toObject();
+            if (obj.value("stream_id").toString() == streamId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // 若尚未获取服务端列表，则回退到当前 UI 列表。
+    for (int i = 0; i < ui->list_streams->count(); ++i) {
+        const auto* item = ui->list_streams->item(i);
+        const QString id = item->data(Qt::UserRole).toString();
+        if (!id.isEmpty() ? id == streamId : item->text() == streamId) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void ChatDialog::slot_play_source_mode_changed(int index)

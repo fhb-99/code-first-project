@@ -4,6 +4,7 @@
 #include <QDebug>
 #include <QIODevice>
 #include <QNetworkProxy>
+#include <QtEndian>
 #include "usermgr.h"
 
 TcpMgr::TcpMgr():_host(""),_port(0),_b_recv_pending(false),_message_id(0),_message_len(0)
@@ -22,9 +23,6 @@ TcpMgr::TcpMgr():_host(""),_port(0),_b_recv_pending(false),_message_id(0),_messa
            // 读取所有数据并追加到缓冲区
            _buffer.append(_socket.readAll());
 
-           QDataStream stream(&_buffer, QIODevice::ReadOnly);
-           stream.setVersion(QDataStream::Qt_5_0);
-
            forever {
                 //先解析头部
                if(!_b_recv_pending){
@@ -33,8 +31,11 @@ TcpMgr::TcpMgr():_host(""),_port(0),_b_recv_pending(false),_message_id(0),_messa
                        return; // 数据不够，等待更多数据
                    }
 
-                   // 预读取消息ID和消息长度，但不从缓冲区中移除
-                   stream >> _message_id >> _message_len;
+                   // 直接从缓冲区读取头部，避免 QDataStream 内部读位置在 _buffer
+                   // 被 mid() 裁剪后残留，导致后续消息头部解析偏移错误
+                   const char* ptr = _buffer.constData();
+                   _message_id = qFromBigEndian<quint16>(ptr);
+                   _message_len = qFromBigEndian<quint16>(ptr + sizeof(quint16));
 
                    //将buffer 中的前四个字节移除
                    _buffer = _buffer.mid(sizeof(quint16) * 2);

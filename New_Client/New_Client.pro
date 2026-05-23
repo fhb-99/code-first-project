@@ -5,6 +5,10 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 CONFIG += c++17
 RC_ICONS = icon.ico
 
+QMAKE_CFLAGS += /utf-8
+QMAKE_CXXFLAGS += /utf-8
+QMAKE_LFLAGS += /utf-8
+
 INCLUDEPATH += \
     $$PWD/core \
     $$PWD/data \

@@ -6,6 +6,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkProxy>
+#include <QtEndian>
 
 MediaMgr::MediaMgr():_host(""),_port(0),_b_recv_pending(false),_message_id(0),_message_len(0)
 {
@@ -19,16 +20,18 @@ MediaMgr::MediaMgr():_host(""),_port(0),_b_recv_pending(false),_message_id(0),_m
     QObject::connect(&_socket, &QTcpSocket::readyRead, [&]() {
         _buffer.append(_socket.readAll());
 
-        QDataStream stream(&_buffer, QIODevice::ReadOnly);
-        stream.setVersion(QDataStream::Qt_5_0);
-
         forever {
             if(!_b_recv_pending){
+                // 头部长度: message_id(2字节) + message_len(2字节)
                 if (_buffer.size() < static_cast<int>(sizeof(quint16) * 2)) {
                     return;
                 }
 
-                stream >> _message_id >> _message_len;
+                // 直接从缓冲区读取头部，避免 QDataStream 内部读位置在 _buffer
+                // 被 mid() 裁剪后残留，导致后续消息头部解析偏移错误
+                const char* ptr = _buffer.constData();
+                _message_id = qFromBigEndian<quint16>(ptr);
+                _message_len = qFromBigEndian<quint16>(ptr + sizeof(quint16));
                 _buffer = _buffer.mid(sizeof(quint16) * 2);
                 qDebug() << "Media Message ID:" << _message_id << ", Length:" << _message_len;
             }
@@ -221,18 +224,50 @@ void MediaMgr::initHandlers()
 
     _handlers.insert(ID_MEDIA_CREATE_SESSION_RSP, [this](ReqId id, int len, QByteArray data) {
         Q_UNUSED(len);
+        qDebug() << "handle id is:" << id;
+
         QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
-        if (!jsonDoc.isNull() && jsonDoc.isObject()) {
-            emit sig_media_common_rsp(id, jsonDoc.object());
+        if (jsonDoc.isNull()) {
+            qDebug() << "Failed to create QJsonDocument.";
+            return;
         }
+
+        QJsonObject jsonObj = jsonDoc.object();
+        if (!jsonObj.contains("error")) {
+            qDebug() << "create session rsp missing error field";
+            return;
+        }
+
+        const int error = jsonObj["error"].toInt();
+        if (error != ErrorCodes::SUCCESS) {
+            qDebug() << "create session rsp failed, error is" << error;
+        }
+
+        emit sig_media_common_rsp(id, jsonObj);
     });
 
     _handlers.insert(ID_MEDIA_JOIN_SESSION_RSP, [this](ReqId id, int len, QByteArray data) {
         Q_UNUSED(len);
+        qDebug() << "handle id is:" << id;
+
         QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
-        if (!jsonDoc.isNull() && jsonDoc.isObject()) {
-            emit sig_media_common_rsp(id, jsonDoc.object());
+        if (jsonDoc.isNull()) {
+            qDebug() << "Failed to create QJsonDocument.";
+            return;
         }
+
+        QJsonObject jsonObj = jsonDoc.object();
+        if (!jsonObj.contains("error")) {
+            qDebug() << "join session rsp missing error field";
+            return;
+        }
+
+        const int error = jsonObj["error"].toInt();
+        if (error != ErrorCodes::SUCCESS) {
+            qDebug() << "join session rsp failed, error is" << error;
+        }
+
+        emit sig_media_common_rsp(id, jsonObj);
     });
 }
 

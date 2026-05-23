@@ -61,7 +61,10 @@ enum ReqId{
 enum ErrorCodes{
     SUCCESS = 0,
     ERR_JSON = 1, //Json解析失败
-    ERR_NETWORK = 2,
+    ERR_REDIS = 2,
+    ERR_MYSQL = 3,
+    ERR_STREAM_ID = 4,
+    ERR_NETWORK = 100,
 };
 
 enum Modules{

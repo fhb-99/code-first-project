@@ -56,6 +56,8 @@ enum ReqId{
     ID_MEDIA_CREATE_SESSION_RSP = 1034, //创建媒体会话回包
     ID_MEDIA_JOIN_SESSION_REQ = 1035, //加入媒体会话请求
     ID_MEDIA_JOIN_SESSION_RSP = 1036, //加入媒体会话回包
+    ID_MEDIA_PAUSE_REQ = 1037, //媒体暂停请求（
+    ID_MEDIA_PAUSE_RSP = 1038, //媒体暂停回包
 };
 
 enum ErrorCodes{
@@ -141,10 +143,10 @@ const int  tip_offset = 5;
 
 
 const std::vector<QString>  strs ={"hello world !",
-                             "nice to meet u",
-                             "New year，new life",
-                            "You have to love yourself",
-                            "My love is written in the wind ever since the whole world is you"};
+                                   "nice to meet u",
+                                   "New year，new life",
+                                   "You have to love yourself",
+                                   "My love is written in the wind ever since the whole world is you"};
 
 const std::vector<QString> heads = {
     ":/res/head_1.jpg",

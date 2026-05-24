@@ -1,4 +1,4 @@
-#ifndef CHATDIALOG_H
+﻿#ifndef CHATDIALOG_H
 #define CHATDIALOG_H
 
 #include <QDialog>
@@ -12,9 +12,11 @@
 #include <QListWidgetItem>
 #include <QJsonArray>
 #include <QJsonObject>
+#include "MediaModeCoordinator.h"
 
 class StreamController;
 class MediaPipeline;
+class MediaModeCoordinator;
 
 namespace Ui {
 class ChatDialog;
@@ -27,7 +29,8 @@ class ChatDialog : public QDialog
 public:
     enum class PlaySourceMode {
         ServerStream = 0,
-        LocalFile = 1
+        LocalFile = 1,
+        LocalDevice = 2   // 本地摄像头/采集卡
     };
 
     explicit ChatDialog(QWidget *parent = nullptr);
@@ -61,9 +64,11 @@ private:
     int _cur_chat_uid;
     StreamController* _stream_controller;
     MediaPipeline* _media_pipeline;
+    MediaModeCoordinator* _coordinator;
     //std::array<std::unique_ptr<MediaPipeline>, 4> _media_pipelines;
     QString _selected_stream_id;
     QString _selected_session_id;
+    QString _selected_session_stream_id;  // 选中会话的当前播放流ID
     PlaySourceMode _play_source_mode;
     bool _pending_pick_server_stream;
     bool _current_play_is_local;
@@ -106,6 +111,10 @@ public slots:
     void slot_player_ui_stop_clicked();
     void slot_player_ui_seek_changed(int value);
     void slot_player_ui_volume_changed(int value);
+    /** 录制按钮点击 */
+    void slot_record_toggled(bool start);
+    /** 协调器状态变更 */
+    void slot_coordinator_state_changed(CoordinatorState oldState, CoordinatorState newState);
 private slots:
 
 };

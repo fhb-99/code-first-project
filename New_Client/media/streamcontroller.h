@@ -1,4 +1,4 @@
-#ifndef STREAMCONTROLLER_H
+﻿#ifndef STREAMCONTROLLER_H
 #define STREAMCONTROLLER_H
 
 #include <QObject>
@@ -16,9 +16,16 @@ public:
     void RequestStreamList(const QString& keyword);
     void RequestSessionList();
     void CreateSession(const QString& sessionName);
-    void JoinSession(const QString& sessionId);
+    void JoinSession(const QString& sessionId, const QString& streamId);
     void PlayStream(const QString& streamId, const QString& sessionId, const QString& url);
-    void StopStream(const QString& sessionId);
+    void StopStream(const QString& sessionId, const QString& streamId);
+    void PauseStream(const QString& sessionId, const QString& streamId, bool paused, qint64 positionMs);
+
+    // ---- 本地设备（摄像头）操作 ----
+    /** 请求打开本地摄像头设备（当前为框架占位，实现留待后续） */
+    void StartCamera(const QString& deviceUrl);
+    /** 请求关闭本地摄像头设备 */
+    void StopCamera();
 
 private:
     int _uid;

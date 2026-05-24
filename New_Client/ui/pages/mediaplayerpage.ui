@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>mediaplayerpage</class>
  <widget class="QDialog" name="mediaplayerpage">
@@ -92,6 +92,16 @@ QPushButton#btn_stop:hover {
 QPushButton#btn_stop:pressed {
   background: #c74747;
   border: 1px solid #a93a3a;
+}
+QPushButton#btn_record {
+  background: #f6f8fb;
+  border: 1px solid #cfd6e2;
+  color: #1f2937;
+}
+QPushButton#btn_record:checked {
+  background: #e25555;
+  border: 1px solid #c74747;
+  color: white;
 }
 QSlider::groove:horizontal {
   border: 1px solid #c9d1de;
@@ -313,6 +323,38 @@ QLabel#lb_status_text, QLabel#lb_session, QLabel#lb_stream_text {
           <property name="sizeHint" stdset="0">
            <size>
             <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_record">
+          <property name="minimumSize">
+           <size>
+            <width>72</width>
+            <height>28</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>录制</string>
+          </property>
+          <property name="toolTip">
+           <string>开始/停止录制（需先打开摄像头）</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_controls_right">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
             <height>20</height>
            </size>
           </property>

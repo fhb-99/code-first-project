@@ -1,4 +1,4 @@
-#include "mediaplayerpage.h"
+﻿#include "mediaplayerpage.h"
 #include "ui_mediaplayerpage.h"
 
 #include <climits>
@@ -27,6 +27,7 @@ mediaplayerpage::mediaplayerpage(QWidget* parent)
     });
 
     updatePauseToggleUi(false, false);
+    updateRecordButtonUi(false);
 }
 
 mediaplayerpage::~mediaplayerpage()
@@ -172,4 +173,36 @@ void mediaplayerpage::on_slider_progress_sliderMoved(int position)
 void mediaplayerpage::on_slider_progress_sliderReleased()
 {
     emit sig_ui_seek_changed(ui->slider_progress->value());
+}
+
+void mediaplayerpage::on_btn_record_toggled(bool checked)
+{
+    emit sig_ui_record_toggled(checked);
+}
+
+void mediaplayerpage::updateRecordButtonUi(bool recording)
+{
+    // blockSignals 避免 setChecked 触发 toggled 信号导致死循环
+    ui->btn_record->blockSignals(true);
+    ui->btn_record->setChecked(recording);
+    ui->btn_record->blockSignals(false);
+
+    if (recording)
+    {
+        ui->btn_record->setText(QStringLiteral("停止录制"));
+        ui->btn_record->setToolTip(QStringLiteral("停止录制并保存文件"));
+    }
+    else
+    {
+        ui->btn_record->setText(QStringLiteral("录制"));
+        ui->btn_record->setToolTip(QStringLiteral("开始录制（需先打开摄像头）"));
+    }
+}
+
+void mediaplayerpage::setTimelineVisible(bool visible)
+{
+    // 直播源（摄像头）没有 duration，进度条和时间标签无意义，隐藏之
+    ui->slider_progress->setVisible(visible);
+    ui->lb_time_current->setVisible(visible);
+    ui->lb_time_total->setVisible(visible);
 }

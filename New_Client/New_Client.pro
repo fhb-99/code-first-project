@@ -34,6 +34,7 @@ SOURCES += \
     data/usermgr.cpp \
     main.cpp \
     mainwindow.cpp \
+    media/MediaModeCoordinator.cpp \
     media/decodepipeline.cpp \
     media/mediapipeline.cpp \
     media/sdlaudiooutput.cpp \
@@ -92,6 +93,7 @@ HEADERS += \
     data/usermgr.h \
     mainwindow.h \
     media/AVDecodeAbstract.h \
+    media/MediaModeCoordinator.h \
     media/decodepipeline.h \
     media/mediapipeline.h \
     media/sdlaudiooutput.h \

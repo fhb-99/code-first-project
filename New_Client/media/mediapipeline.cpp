@@ -119,25 +119,28 @@ bool MediaPipeline::StartPlay(const QString& playUrl, QWidget* renderHost)
         return false;
     }
 
-    if (!audio_output_) {
-        audio_output_ = std::make_unique<SdlAudioOutput>(nullptr);
-        if (!audio_output_->init()) {
-            qWarning() << "[MediaPipeline] audio output init failed.";
-            decoder_->stop();
-            decoder_.reset();
-            audio_output_.reset();
-            if (video_renderer_)
-                video_renderer_->hide();
-            if (placeholder)
-                placeholder->show();
-            return false;
+    // 仅当解码器存在有效音频流时才创建音频输出模块
+    // 纯视频源（如摄像头）audioTimeBase().den == 0，跳过音频初始化
+    if (decoder_->audioTimeBase().den != 0) {
+        if (!audio_output_) {
+            audio_output_ = std::make_unique<SdlAudioOutput>(nullptr);
+            if (!audio_output_->init()) {
+                qWarning() << "[MediaPipeline] audio output init failed.";
+                decoder_->stop();
+                decoder_.reset();
+                audio_output_.reset();
+                if (video_renderer_)
+                    video_renderer_->hide();
+                if (placeholder)
+                    placeholder->show();
+                return false;
+            }
         }
+        audio_output_->setDecoder(decoder_.get());
+        audio_output_->startWorker();
+        audio_output_->setAudioTimeBase(decoder_->audioTimeBase());
+        audio_output_->flushPcmAndResetClock();
     }
-    audio_output_->setDecoder(decoder_.get());
-    audio_output_->startWorker();
-
-    audio_output_->setAudioTimeBase(decoder_->audioTimeBase());
-    audio_output_->flushPcmAndResetClock();
     pending_early_video_.reset();
 
     if (!pull_timer_) {
@@ -146,7 +149,8 @@ bool MediaPipeline::StartPlay(const QString& playUrl, QWidget* renderHost)
     }
     paused_ = false;
     pull_timer_->start(33);
-    audio_output_->pause(false);
+    if (audio_output_)
+        audio_output_->pause(false);
 
     if (progress_timer)
         progress_timer->start(100);

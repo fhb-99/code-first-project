@@ -183,7 +183,7 @@ void DecodePipeline::pause(bool flag)
  */
 int DecodePipeline::seek(int64_t ms)
 {
-    if (!fmt_ctx || video_stream_index < 0 || !video_dec_ctx || !audio_dec_ctx)
+    if (!fmt_ctx || video_stream_index < 0 || !video_dec_ctx)
         return -1;
 
     if (ms < 0)
@@ -201,7 +201,8 @@ int DecodePipeline::seek(int64_t ms)
 
     int seekRet = av_seek_frame(fmt_ctx, video_stream_index, tsInStreamTb, AVSEEK_FLAG_BACKWARD);
     if (seekRet >= 0) {
-        avcodec_flush_buffers(audio_dec_ctx);
+        if (audio_dec_ctx)
+            avcodec_flush_buffers(audio_dec_ctx);
         avcodec_flush_buffers(video_dec_ctx);
     } else {
         ffmpegLogErr("av_seek_frame", seekRet);
@@ -289,6 +290,13 @@ int DecodePipeline::open(const std::string& url)
             releaseFmtOptsDict();
             return -5;
         }
+
+        // 摄像头专用配置
+        av_dict_set(&fmt_opts, "video_size", "1280x720", 0);
+        av_dict_set(&fmt_opts, "framerate", "30", 0);
+        //av_dict_set(&fmt_opts, "pixel_format", "yuv420p", 0);
+        //av_dict_set(&fmt_opts, "rtbufsize", "4096000", 0);
+
     } else if (looksLikeNetworkUrl(url)) {
         //网络流不需要手动指定格式
         ifmt = nullptr;
@@ -343,9 +351,11 @@ int DecodePipeline::open(const std::string& url)
     subtitle_stream_index = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_SUBTITLE, -1, -1, nullptr, 0);
 
     if (audio_stream_index < 0) {
-        qDebug() << "can not find audio stream";
-        releaseFormatContext();
-        return -10;
+        // 纯视频源（如 USB 摄像头无麦克风）允许无音频继续，仅视频预览
+        qDebug() << "no audio stream found, continuing with video only";
+        audio_stream_index = -1;
+        audio_time_base_num = 0;
+        audio_time_base_den = 0;
     }
     if (video_stream_index < 0) {
         qDebug() << "can not find video stream";
@@ -356,28 +366,34 @@ int DecodePipeline::open(const std::string& url)
         qDebug() << "can not find subtitle stream";
     }
 
-    //8、获取音频、视频信息(时间基、编码参数)
-    AVStream* audio_stream = fmt_ctx->streams[audio_stream_index];
+    //8、获取视频流信息(时间基、编码参数)；音频信息仅在有音频轨时获取
     AVStream* video_stream = fmt_ctx->streams[video_stream_index];
 
-    //先缓存音频和视频的时间基
-    audio_time_base_num = audio_stream->time_base.num;
-    audio_time_base_den = audio_stream->time_base.den;
     video_time_base_num = video_stream->time_base.num;
     video_time_base_den = video_stream->time_base.den;
 
-    //获得音频、视频得编码参数
-    AVCodecParameters* audio_codec_param = audio_stream->codecpar;
     AVCodecParameters* video_codec_param = video_stream->codecpar;
 
-    // 9、avcodec_find_decoder：由 codec_id 查找已链接进程序的解码器 AVCodec（软解示例）
+    // 音频流相关仅在音轨存在时获取
+    AVStream* audio_stream = nullptr;
+    AVCodecParameters* audio_codec_param = nullptr;
+    if (audio_stream_index >= 0) {
+        audio_stream = fmt_ctx->streams[audio_stream_index];
+        audio_time_base_num = audio_stream->time_base.num;
+        audio_time_base_den = audio_stream->time_base.den;
+        audio_codec_param = audio_stream->codecpar;
+    }
+
+    // 9、avcodec_find_decoder：查找解码器
     AVCodec* audio_codec = nullptr;
     AVCodec* video_codec = nullptr;
-    audio_codec = avcodec_find_decoder(audio_codec_param->codec_id);
-    if (!audio_codec) {
-        qDebug() << "can not find audio_codec: " << avcodec_get_name(audio_codec_param->codec_id);
-        releaseFormatContext();
-        return -15;
+    if (audio_stream_index >= 0) {
+        audio_codec = avcodec_find_decoder(audio_codec_param->codec_id);
+        if (!audio_codec) {
+            qDebug() << "can not find audio_codec: " << avcodec_get_name(audio_codec_param->codec_id);
+            releaseFormatContext();
+            return -15;
+        }
     }
     video_codec = avcodec_find_decoder(video_codec_param->codec_id);
     if (!video_codec) {
@@ -386,12 +402,14 @@ int DecodePipeline::open(const std::string& url)
         return -15;
     }
 
-    // 10、avcodec_alloc_context3：为指定 AVCodec 分配 AVCodecContext（真正执行解码的状态机）
-    audio_dec_ctx = avcodec_alloc_context3(audio_codec);
-    if (!audio_dec_ctx) {
-        qDebug() << "alloc audio codec context failed";
-        releaseFormatContext();
-        return -20;
+    // 10、avcodec_alloc_context3：分配解码上下文
+    if (audio_stream_index >= 0) {
+        audio_dec_ctx = avcodec_alloc_context3(audio_codec);
+        if (!audio_dec_ctx) {
+            qDebug() << "alloc audio codec context failed";
+            releaseFormatContext();
+            return -20;
+        }
     }
     video_dec_ctx = avcodec_alloc_context3(video_codec);
     if (!video_dec_ctx) {
@@ -401,13 +419,15 @@ int DecodePipeline::open(const std::string& url)
         return -20;
     }
 
-    // 11、avcodec_parameters_to_context：容器里的 codecpar → 解码器上下文（宽高、声道、extradata 等）
-    int audio_res = avcodec_parameters_to_context(audio_dec_ctx, audio_codec_param);
-    if (audio_res != 0) {
-        qDebug() << "audio avcodec_parameters_to_context error: " << audio_res;
-        releaseDecoderContexts();
-        releaseFormatContext();
-        return audio_res;
+    // 11、avcodec_parameters_to_context：容器 codecpar → 解码器上下文
+    if (audio_stream_index >= 0) {
+        int audio_res = avcodec_parameters_to_context(audio_dec_ctx, audio_codec_param);
+        if (audio_res != 0) {
+            qDebug() << "audio avcodec_parameters_to_context error: " << audio_res;
+            releaseDecoderContexts();
+            releaseFormatContext();
+            return audio_res;
+        }
     }
     int video_res = avcodec_parameters_to_context(video_dec_ctx, video_codec_param);
     if (video_res != 0) {
@@ -417,13 +437,15 @@ int DecodePipeline::open(const std::string& url)
         return video_res;
     }
 
-    // 12、avcodec_open2：用选定的 codec 初始化硬件/线程选项等后真正开启解码实例
-    audio_res = avcodec_open2(audio_dec_ctx, audio_codec, nullptr);
-    if (audio_res != 0) {
-        qDebug() << "open audio codec failed";
-        releaseDecoderContexts();
-        releaseFormatContext();
-        return audio_res;
+    // 12、avcodec_open2：初始化解码器
+    if (audio_stream_index >= 0) {
+        int audio_res = avcodec_open2(audio_dec_ctx, audio_codec, nullptr);
+        if (audio_res != 0) {
+            qDebug() << "open audio codec failed";
+            releaseDecoderContexts();
+            releaseFormatContext();
+            return audio_res;
+        }
     }
     video_res = avcodec_open2(video_dec_ctx, video_codec, nullptr);
     if (video_res) {
@@ -498,7 +520,8 @@ void DecodePipeline::decode_loop_worker()
             // 流结束：先 flush 两路解码器，再退出循环（与文件播完、部分网络流一致）
             if (readRes == AVERROR_EOF) {
                 flush_decoder(this, video_dec_ctx, video_frame, true, kVidTag);
-                flush_decoder(this, audio_dec_ctx, audio_frame, false, kAudTag);
+                if (audio_dec_ctx)
+                    flush_decoder(this, audio_dec_ctx, audio_frame, false, kAudTag);
                 qDebug() << "[DecodePipeline] demux EOF";
                 break;
             }

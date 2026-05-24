@@ -1,4 +1,4 @@
-#include "streamcontroller.h"
+﻿#include "streamcontroller.h"
 #include <QJsonDocument>
 #include <QJsonObject>
 #include "mediamgr.h"
@@ -33,13 +33,16 @@ void StreamController::CreateSession(const QString &sessionName)
 {
     QJsonObject obj;
     obj["session_name"] = sessionName;
+    obj["uid"] = UserMgr::GetInstance()->GetUid();
     emit MediaMgr::GetInstance()->sig_send_data(ID_MEDIA_CREATE_SESSION_REQ, QJsonDocument(obj).toJson(QJsonDocument::Compact));
 }
 
-void StreamController::JoinSession(const QString &sessionId)
+void StreamController::JoinSession(const QString &sessionId, const QString &streamId)
 {
     QJsonObject obj;
     obj["session_id"] = sessionId;
+    obj["stream_id"] = streamId;
+    obj["uid"] = UserMgr::GetInstance()->GetUid();
     emit MediaMgr::GetInstance()->sig_send_data(ID_MEDIA_JOIN_SESSION_REQ, QJsonDocument(obj).toJson(QJsonDocument::Compact));
 }
 
@@ -53,11 +56,41 @@ void StreamController::PlayStream(const QString &streamId, const QString &sessio
     emit MediaMgr::GetInstance()->sig_send_data(ID_MEDIA_PLAY_REQ, QJsonDocument(obj).toJson(QJsonDocument::Compact));
 }
 
-void StreamController::StopStream(const QString &sessionId)
+void StreamController::StopStream(const QString &sessionId, const QString &streamId)
 {
     QJsonObject obj;
+    obj["uid"] = UserMgr::GetInstance()->GetUid();
     obj["session_id"] = sessionId;
+    obj["stream_id"] = streamId;
     emit MediaMgr::GetInstance()->sig_send_data(ID_MEDIA_STOP_REQ, QJsonDocument(obj).toJson(QJsonDocument::Compact));
+}
+
+void StreamController::PauseStream(const QString &sessionId, const QString &streamId, bool paused, qint64 positionMs)
+{
+    QJsonObject obj;
+    obj["uid"] = UserMgr::GetInstance()->GetUid();
+    obj["session_id"] = sessionId;
+    obj["stream_id"] = streamId;
+    obj["position_ms"] = positionMs;
+    obj["paused"] = paused;
+    emit MediaMgr::GetInstance()->sig_send_data(ID_MEDIA_PAUSE_REQ, QJsonDocument(obj).toJson(QJsonDocument::Compact));
+}
+
+// ---- 本地设备（摄像头）操作 ----
+
+void StreamController::StartCamera(const QString& deviceUrl)
+{
+    // 框架占位：后续由 MediaPipeline 通过 DecodePipeline 打开设备 URL
+    // deviceUrl 格式：
+    //   Windows: "video=USB Camera"          (dshow)
+    //   Linux:   "/dev/video0" 或 "v4l2://..."  (v4l2)
+    emit sig_status(QStringLiteral("StartCamera 请求（实现待补）：%1").arg(deviceUrl));
+}
+
+void StreamController::StopCamera()
+{
+    // 框架占位：后续关闭摄像头采集管线
+    emit sig_status(QStringLiteral("StopCamera 请求（实现待补）"));
 }
 
 void StreamController::slot_on_media_stream_list(QJsonArray streams)

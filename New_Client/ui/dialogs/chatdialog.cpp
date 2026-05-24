@@ -1,4 +1,4 @@
-#include "chatdialog.h"
+﻿#include "chatdialog.h"
 #include "ui_chatdialog.h"
 #include <QAction>
 #include "chatuserwid.h"
@@ -38,6 +38,7 @@ ChatDialog::ChatDialog(QWidget *parent) :
     _state(ChatUIMode::ChatMode),_last_widget(nullptr),_cur_chat_uid(0),
     _stream_controller(new StreamController(this)),
     _media_pipeline(new MediaPipeline(this)),
+    _coordinator(new MediaModeCoordinator(this)),
     _play_source_mode(PlaySourceMode::ServerStream),
     _pending_pick_server_stream(false),
     _current_play_is_local(false)
@@ -197,6 +198,42 @@ ChatDialog::ChatDialog(QWidget *parent) :
     connect(ui->media_player_page, &mediaplayerpage::sig_ui_stop_clicked, this, &ChatDialog::slot_player_ui_stop_clicked);
     connect(ui->media_player_page, &mediaplayerpage::sig_ui_seek_changed, this, &ChatDialog::slot_player_ui_seek_changed);
     connect(ui->media_player_page, &mediaplayerpage::sig_ui_volume_changed, this, &ChatDialog::slot_player_ui_volume_changed);
+
+    // record button → ChatDialog
+    connect(ui->media_player_page, &mediaplayerpage::sig_ui_record_toggled, this, &ChatDialog::slot_record_toggled);
+
+    // coordinator → ChatDialog（协调器构造好设备 URL，ChatDialog 只管喂给管线）
+    connect(_coordinator, &MediaModeCoordinator::cameraOpenRequested, this, [this](const QString& deviceUrl) {
+        slot_media_status(QStringLiteral("正在打开摄像头: %1").arg(deviceUrl));
+        QWidget* host = ui->media_player_page->videoRenderHostWidget();
+        if (!_media_pipeline->StartPlay(deviceUrl, host)) {
+            slot_media_status(QStringLiteral("摄像头打开失败"));
+            _coordinator->requestCloseCamera();
+            return;
+        }
+
+        ui->media_player_page->SetCurrentStream(QStringLiteral("camera"), deviceUrl);
+        ui->media_player_page->SetSessionText(QStringLiteral("Session: local-device"));
+        ui->media_player_page->SetStatusText(QStringLiteral("Status: Camera Preview"));
+    });
+    connect(_coordinator, &MediaModeCoordinator::cameraCloseRequested, this, [this]() {
+        _media_pipeline->Stop();
+        ui->media_player_page->resetPlaybackTimelineUi();
+        ui->media_player_page->updatePauseToggleUi(false, false);
+        ui->media_player_page->updateRecordButtonUi(false);
+        ui->media_player_page->SetStatusText(QStringLiteral("Status: Idle"));
+        slot_media_status(QStringLiteral("摄像头已关闭"));
+    });
+    connect(_coordinator, &MediaModeCoordinator::recordingStartRequested, this, [this]() {
+        ui->media_player_page->updateRecordButtonUi(true);
+        slot_media_status(QStringLiteral("录制已开始（功能预留）"));
+    });
+    connect(_coordinator, &MediaModeCoordinator::recordingStopRequested, this, [this]() {
+        ui->media_player_page->updateRecordButtonUi(false);
+        slot_media_status(QStringLiteral("录制已停止（功能预留）"));
+    });
+    connect(_coordinator, &MediaModeCoordinator::stateChanged, this, &ChatDialog::slot_coordinator_state_changed);
+    connect(_coordinator, &MediaModeCoordinator::statusMessage, this, &ChatDialog::slot_media_status);
 
     connect(_media_pipeline, &MediaPipeline::sig_update_progressbar, ui->media_player_page,
             &mediaplayerpage::syncProgressFromPipeline);
@@ -922,7 +959,8 @@ void ChatDialog::slot_media_join_session()
         slot_media_status("请先在会话列表中选择一个会话");
         return;
     }
-    _stream_controller->JoinSession(_selected_session_id);
+
+    _stream_controller->JoinSession(_selected_session_id, _selected_session_stream_id);
     slot_media_status(QString("加入会话请求: %1").arg(_selected_session_id));
 }
 
@@ -938,6 +976,7 @@ void ChatDialog::slot_media_stream_item_clicked(QListWidgetItem *item)
 void ChatDialog::slot_media_session_item_clicked(QListWidgetItem *item)
 {
     _selected_session_id = item->data(Qt::UserRole).toString();
+    _selected_session_stream_id = item->data(Qt::UserRole + 1).toString();
     if (_selected_session_id.isEmpty()) {
         _selected_session_id = item->text();
     }
@@ -973,8 +1012,10 @@ void ChatDialog::slot_media_sessions_updated(QJsonArray sessions)
         const QJsonObject obj = v.toObject();
         const QString sessionId = obj.value("session_id").toString();
         const QString name = obj.value("session_name").toString();
+        const QString streamId = obj.value("current_stream_id").toString();
         QListWidgetItem* item = new QListWidgetItem(QString("%1 (%2)").arg(name.isEmpty() ? sessionId : name, sessionId));
         item->setData(Qt::UserRole, sessionId);
+        item->setData(Qt::UserRole + 1, streamId);
         ui->list_sessions->addItem(item);
     }
     slot_media_status(QString("会话列表更新: %1 条").arg(sessions.size()));
@@ -1061,6 +1102,10 @@ void ChatDialog::slot_play_source_mode_changed(int index)
         SetPlaySourceMode(PlaySourceMode::LocalFile);
         return;
     }
+    if (index == static_cast<int>(PlaySourceMode::LocalDevice)) {
+        SetPlaySourceMode(PlaySourceMode::LocalDevice);
+        return;
+    }
     SetPlaySourceMode(PlaySourceMode::ServerStream);
 }
 
@@ -1070,6 +1115,13 @@ void ChatDialog::slot_player_ui_play_clicked()
         startLocalFilePlayback();
         return;
     }
+
+
+	// 本地设备模式：通过协调器请求打开摄像头
+	if (_play_source_mode == PlaySourceMode::LocalDevice) {
+		_coordinator->requestOpenCamera();
+		return;
+	}
 
     _pending_pick_server_stream = true;
     _stream_controller->RequestStreamList(ui->edit_stream_search->text().trimmed());
@@ -1082,9 +1134,17 @@ void ChatDialog::slot_player_ui_stop_clicked()
     ui->media_player_page->resetPlaybackTimelineUi();
     ui->media_player_page->updatePauseToggleUi(false, false);
     if (!_current_play_is_local) {
-        _stream_controller->StopStream(_selected_session_id);
+        _stream_controller->StopStream(_selected_session_id, _selected_stream_id);
     }
     _current_play_is_local = false;
+
+    // 若当前为摄像头预览模式，通过协调器关闭摄像头
+    if (_coordinator->isCameraActive()) {
+        _coordinator->requestCloseCamera();
+        return;
+    }
+    // 通知协调器：播放已停止（协调器会回到 Idle 状态）
+    _coordinator->notifyPlayStopped();
 }
 
 void ChatDialog::slot_player_ui_pause_clicked()
@@ -1094,16 +1154,26 @@ void ChatDialog::slot_player_ui_pause_clicked()
         return;
     }
     if (_media_pipeline->isPlaybackPaused()) {
+        // 恢复播放
         _media_pipeline->Pause(false);
         ui->media_player_page->updatePauseToggleUi(true, false);
         ui->media_player_page->SetStatusText(QStringLiteral("Status: Playing"));
         slot_media_status(QStringLiteral("已继续播放"));
+        // 通知服务端恢复播放（复用 play 请求或单独的 resume）
+        if (!_current_play_is_local) {
+            // 服务端 MediaPauseHandler 对 position_ms 有默认值 0，此处暂传 0
+            _stream_controller->PauseStream(_selected_session_id, _selected_stream_id, false, 0);
+        }
         return;
     }
     _media_pipeline->Pause(true);
     ui->media_player_page->updatePauseToggleUi(true, true);
     ui->media_player_page->SetStatusText(QStringLiteral("Status: Paused"));
     slot_media_status(QStringLiteral("已暂停本地播放"));
+    // 通知服务端暂停
+    if (!_current_play_is_local) {
+        _stream_controller->PauseStream(_selected_session_id, _selected_stream_id, true, 0);
+    }
 }
 
 void ChatDialog::slot_player_ui_seek_changed(int value)
@@ -1121,10 +1191,22 @@ void ChatDialog::slot_player_ui_volume_changed(int value)
 void ChatDialog::SetPlaySourceMode(PlaySourceMode mode)
 {
     _play_source_mode = mode;
+
+    // 同步到协调器（映射 PlaySourceMode → PlaySourceKind）
+    PlaySourceKind kind;
+    switch (mode) {
+    case PlaySourceMode::ServerStream: kind = PlaySourceKind::ServerStream; break;
+    case PlaySourceMode::LocalFile:    kind = PlaySourceKind::LocalFile;    break;
+    case PlaySourceMode::LocalDevice:  kind = PlaySourceKind::LocalDevice;  break;
+    }
+    _coordinator->switchSourceKind(kind);
+
     if (mode == PlaySourceMode::ServerStream) {
         slot_media_status(QStringLiteral("Play mode: server stream"));
-    } else {
+    } else if (mode == PlaySourceMode::LocalFile) {
         slot_media_status(QStringLiteral("Play mode: local file"));
+    } else {
+        slot_media_status(QStringLiteral("Play mode: local device (camera)"));
     }
 }
 
@@ -1234,4 +1316,35 @@ void ChatDialog::startLocalFilePlayback()
     ui->media_player_page->SetStatusText(QStringLiteral("Status: Local Playing"));
     ui->media_player_page->updatePauseToggleUi(true, false);
     slot_media_status(QStringLiteral("Local playback started"));
+}
+
+// ============================================================================
+// 录制按钮处理
+// ============================================================================
+
+void ChatDialog::slot_record_toggled(bool start)
+{
+    if (start) {
+        _coordinator->requestStartRecording();
+    } else {
+        _coordinator->requestStopRecording();
+    }
+}
+
+// ============================================================================
+// 协调器状态变更 → UI 刷新
+// ============================================================================
+
+void ChatDialog::slot_coordinator_state_changed(CoordinatorState oldState, CoordinatorState newState)
+{
+    Q_UNUSED(oldState);
+
+    const bool cameraActive = (newState == CoordinatorState::Previewing
+                               || newState == CoordinatorState::Recording);
+    const bool recording   = (newState == CoordinatorState::Recording);
+
+    ui->media_player_page->updateRecordButtonUi(recording);
+
+    // 摄像头模式下隐藏进度条（直播源无 duration）；点播源恢复显示
+    ui->media_player_page->setTimelineVisible(!cameraActive);
 }

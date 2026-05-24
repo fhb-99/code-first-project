@@ -16,9 +16,19 @@ struct MediaListInfo{
 
 
 struct SessionInfo{
-    SessionInfo() : session_id(""), owner_id(0), current_stream_id(""), state(0) {}
+    SessionInfo() : session_id(""), session_name(""), owner_id(0), current_stream_id(""), current_pos_ms(0), sync_version(0), state(0) {}
     std::string session_id;
+    std::string session_name;
     int owner_id;
     std::string current_stream_id;
+    long long current_pos_ms;
+    int sync_version;
     int state;
+};
+
+// 会话成员信息，用于广播同步通知时查询成员列表
+struct SessionMemberInfo{
+    SessionMemberInfo() : uid(0), session_id("") {}
+    int uid;
+    std::string session_id;
 };

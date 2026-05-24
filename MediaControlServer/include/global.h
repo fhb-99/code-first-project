@@ -60,7 +60,9 @@ enum ErrorCodes
     Error_Json = 1,
     Error_Redis = 2,
     Error_Mysql = 3,
-    Error_StreamID = 4
+    Error_StreamID = 4,
+    Error_NotOwner = 5,        // 非会话 owner 无权执行播放控制操作
+    Error_SessionNotFound = 6  // 指定的会话不存在
 };
 
 

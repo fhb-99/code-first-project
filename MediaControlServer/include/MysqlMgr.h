@@ -123,6 +123,8 @@ public:
     bool GetMediaList(int uid, std::vector<std::shared_ptr<MediaListInfo>>& media_list);
     //获取媒体播放流的stream_id
     bool GetStreamInfo(int uid, std::string& stream_id);
+    //根据 stream_id 查询播放 URL（用于广播同步通知时填充 play_url 字段）
+    bool GetStreamUrl(const std::string& stream_id, std::string& url);
 
     // 更新 media_client_playing.state（与 db/mysql_media_migration.sql 一致）
     bool UpdateMediaPlayStatus(int uid, const std::string& session_id, const std::string& stream_id, int state);
@@ -138,14 +140,25 @@ public:
     bool GetSessionList(int uid, std::vector<std::shared_ptr<SessionInfo>>& session_list);
     //判断客户端传来的stream_id是否在media_stream表中
     bool IsStreamIDValid(const std::string& stream_id);
-    //创建会话
-    bool CreateSession(int uid, const std::string& session_id, const std::string& stream_id, int state);
+    //创建会话（session_name 由客户端传入）
+    bool CreateSession(int uid, const std::string& session_id, const std::string& session_name, const std::string& stream_id, int state);
     //加入会话
     bool JoinSession(int uid, const std::string& session_id, const std::string& stream_id, int state);
     //获取会话的owner_id
     int GetOwnerIDOfSession(const std::string& session_id);
     //根据uid从user表中查询name
     std::string GetNameByUID(int uid);
+
+    // 查询会话内所有成员 uid 列表（用于广播同步通知）
+    bool GetSessionMembers(const std::string& session_id, std::vector<std::shared_ptr<SessionMemberInfo>>& members);
+    // 将会话成员写入 media_session_member 表
+    bool AddSessionMember(int uid, const std::string& session_id);
+    // 从 media_session_member 表移除成员（离开会话或断线时调用）
+    bool RemoveSessionMember(int uid, const std::string& session_id);
+    // 更新 media_session 的播放状态（current_stream_id/current_pos_ms/state）并自增 sync_version
+    bool UpdateSessionPlayState(const std::string& session_id, const std::string& stream_id, int state, long long pos_ms);
+    // 更新成员心跳时间
+    bool UpdateMemberHeartbeat(int uid, const std::string& session_id);
 
 private:
     std::unique_ptr<MysqlPool> pool_;

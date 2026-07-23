@@ -1,0 +1,489 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>mediaplayerpage</class>
+ <widget class="QDialog" name="mediaplayerpage">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>578</width>
+    <height>641</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Media Player</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">QDialog#mediaplayerpage {
+  background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #eef2f8, stop:1 #e6edf7);
+}
+QFrame#frame_header,
+QFrame#frame_controls,
+QFrame#frame_status_bar {
+  background: #ffffff;
+  border: 1px solid #d8dde6;
+  border-radius: 8px;
+}
+QFrame#frame_video_container {
+  background: #151a22;
+  border: 1px solid #2b3240;
+  border-radius: 10px;
+}
+QWidget#video_render_host {
+  background: #10151d;
+}
+QLabel#lb_video_placeholder {
+  color: #90a0b8;
+  font-size: 17px;
+  letter-spacing: 1px;
+}
+QPushButton {
+  background: #f6f8fb;
+  border: 1px solid #cfd6e2;
+  border-radius: 6px;
+  padding: 4px 12px;
+  color: #1f2937;
+}
+QPushButton:hover {
+  background: #e3ebfa;
+  border: 1px solid #9fb4d9;
+}
+QPushButton:pressed {
+  background: #d2def5;
+  border: 1px solid #6f8fc4;
+  padding-top: 5px;
+  padding-left: 13px;
+}
+QPushButton#btn_play {
+  background: #1f9d55;
+  border: 1px solid #178045;
+  color: white;
+}
+QPushButton#btn_play:hover {
+  background: #25b25f;
+  border: 1px solid #1c9650;
+}
+QPushButton#btn_play:pressed {
+  background: #178045;
+  border: 1px solid #126c3c;
+}
+QPushButton#btn_pause {
+  background: #f2b01e;
+  border: 1px solid #d89a13;
+  color: #1f1f1f;
+}
+QPushButton#btn_pause:hover {
+  background: #ffc239;
+  border: 1px solid #dea01a;
+}
+QPushButton#btn_pause:pressed {
+  background: #d89a13;
+  border: 1px solid #b68110;
+}
+QPushButton#btn_stop {
+  background: #e25555;
+  border: 1px solid #c74747;
+  color: white;
+}
+QPushButton#btn_stop:hover {
+  background: #f06a6a;
+  border: 1px solid #d75858;
+}
+QPushButton#btn_stop:pressed {
+  background: #c74747;
+  border: 1px solid #a93a3a;
+}
+QPushButton#btn_record {
+  background: #f6f8fb;
+  border: 1px solid #cfd6e2;
+  color: #1f2937;
+}
+QPushButton#btn_record:checked {
+  background: #e25555;
+  border: 1px solid #c74747;
+  color: white;
+}
+QSlider::groove:horizontal {
+  border: 1px solid #c9d1de;
+  height: 6px;
+  border-radius: 3px;
+  background: #e9edf4;
+}
+QSlider::handle:horizontal {
+  background: #5b78b3;
+  border: 1px solid #4b669a;
+  width: 14px;
+  margin: -5px 0;
+  border-radius: 7px;
+}
+QLabel#lb_page_title {
+  color: #243449;
+  font-size: 15px;
+  font-weight: 700;
+}
+QLabel#lb_status_text, QLabel#lb_session, QLabel#lb_stream_text {
+  color: #2a3b52;
+}</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_root">
+   <property name="spacing">
+    <number>8</number>
+   </property>
+   <property name="leftMargin">
+    <number>10</number>
+   </property>
+   <property name="topMargin">
+    <number>10</number>
+   </property>
+   <property name="rightMargin">
+    <number>10</number>
+   </property>
+   <property name="bottomMargin">
+    <number>10</number>
+   </property>
+   <item>
+    <widget class="QFrame" name="frame_header">
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout_header">
+      <property name="leftMargin">
+       <number>10</number>
+      </property>
+      <property name="topMargin">
+       <number>6</number>
+      </property>
+      <property name="rightMargin">
+       <number>10</number>
+      </property>
+      <property name="bottomMargin">
+       <number>6</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="lb_page_title">
+        <property name="text">
+         <string>媒体播放器</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_header">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLabel" name="lb_session">
+        <property name="text">
+         <string>Session: -</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QFrame" name="frame_video_container">
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Sunken</enum>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_video">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QWidget" name="video_render_host" native="true">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>340</height>
+         </size>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_video_placeholder">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="lb_video_placeholder">
+           <property name="text">
+            <string>视频渲染区域</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QFrame" name="frame_controls">
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_controls">
+      <property name="leftMargin">
+       <number>10</number>
+      </property>
+      <property name="topMargin">
+       <number>8</number>
+      </property>
+      <property name="rightMargin">
+       <number>10</number>
+      </property>
+      <property name="bottomMargin">
+       <number>8</number>
+      </property>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_controls_top">
+        <item>
+         <widget class="QPushButton" name="btn_play">
+          <property name="minimumSize">
+           <size>
+            <width>72</width>
+            <height>28</height>
+           </size>
+          </property>
+         <property name="text">
+           <string>播放</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_pause">
+          <property name="minimumSize">
+           <size>
+            <width>72</width>
+            <height>28</height>
+           </size>
+          </property>
+         <property name="text">
+           <string>暂停</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_stop">
+          <property name="minimumSize">
+           <size>
+            <width>72</width>
+            <height>28</height>
+           </size>
+          </property>
+         <property name="text">
+           <string>停止</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_controls_mid">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_record">
+          <property name="minimumSize">
+           <size>
+            <width>72</width>
+            <height>28</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>录制</string>
+          </property>
+          <property name="toolTip">
+           <string>开始/停止录制（需先打开摄像头）</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_controls_right">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QLabel" name="lb_volume">
+         <property name="text">
+           <string>音量</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSlider" name="slider_volume">
+          <property name="minimumSize">
+           <size>
+            <width>120</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximum">
+           <number>100</number>
+          </property>
+          <property name="value">
+           <number>60</number>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_progress">
+        <item>
+         <widget class="QLabel" name="lb_time_current">
+          <property name="text">
+           <string>00:00:00</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSlider" name="slider_progress">
+          <property name="maximum">
+           <number>1000</number>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="lb_time_total">
+          <property name="text">
+           <string>00:00:00</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QFrame" name="frame_status_bar">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>30</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>30</height>
+      </size>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout_status">
+      <property name="leftMargin">
+       <number>10</number>
+      </property>
+      <property name="topMargin">
+       <number>4</number>
+      </property>
+      <property name="rightMargin">
+       <number>10</number>
+      </property>
+      <property name="bottomMargin">
+       <number>4</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="lb_status_text">
+        <property name="text">
+         <string>Status: Idle</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_status">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLabel" name="lb_stream_text">
+        <property name="text">
+         <string>Stream: -</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

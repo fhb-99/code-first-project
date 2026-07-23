@@ -1,0 +1,1350 @@
+﻿#include "chatdialog.h"
+#include "ui_chatdialog.h"
+#include <QAction>
+#include "chatuserwid.h"
+#include <QDebug>
+#include <vector>
+#include <QRandomGenerator>
+#include <QDateTime>
+#include "loadingdlg.h"
+#include "global.h"
+#include "ChatItemBase.h"
+#include "TextBubble.h"
+#include "PictureBubble.h"
+#include "MessageTextEdit.h"
+#include "chatuserlist.h"
+#include "grouptipitem.h"
+#include "invaliditem.h"
+#include "conuseritem.h"
+#include "lineitem.h"
+#include "tcpmgr.h"
+#include "usermgr.h"
+#include "streamcontroller.h"
+#include "mediapipeline.h"
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFileDialog>
+#include <QHeaderView>
+#include <QComboBox>
+#include <QInputDialog>
+#include <QMessageBox>
+#include <QTableWidget>
+#include <QVBoxLayout>
+
+
+ChatDialog::ChatDialog(QWidget *parent) :
+    QDialog(parent),
+    ui(new Ui::ChatDialog),_b_loading(false),_mode(ChatUIMode::ChatMode),
+    _state(ChatUIMode::ChatMode),_last_widget(nullptr),_cur_chat_uid(0),
+    _stream_controller(new StreamController(this)),
+    _media_pipeline(new MediaPipeline(this)),
+    _coordinator(new MediaModeCoordinator(this)),
+    _play_source_mode(PlaySourceMode::ServerStream),
+    _pending_pick_server_stream(false),
+    _current_play_is_local(false)
+{
+    ui->setupUi(this);
+
+    ui->add_btn->SetState("normal","hover","press");
+    ui->add_btn->setProperty("state","normal");
+    QAction *searchAction = new QAction(ui->search_edit);
+    searchAction->setIcon(QIcon(":/res/search.png"));
+    ui->search_edit->addAction(searchAction,QLineEdit::LeadingPosition);
+    ui->search_edit->setPlaceholderText(QStringLiteral("search"));
+
+
+    // 创建一个清除动作并设置图标
+    QAction *clearAction = new QAction(ui->search_edit);
+    clearAction->setIcon(QIcon(":/res/close_transparent.png"));
+    // 初始时不显示清除图标
+    // 将清除动作添加到LineEdit的末尾位置
+    ui->search_edit->addAction(clearAction, QLineEdit::TrailingPosition);
+
+    // 当需要显示清除图标时，更改为实际的清除图标
+    connect(ui->search_edit, &QLineEdit::textChanged, [clearAction](const QString &text) {
+        if (!text.isEmpty()) {
+            clearAction->setIcon(QIcon(":/res/close_search.png"));
+        } else {
+            clearAction->setIcon(QIcon(":/res/close_transparent.png")); // 文本为空时，切换回透明图标
+        }
+
+    });
+
+    // 连接清除动作的触发信号到槽函数，用于清除文本
+    connect(clearAction, &QAction::triggered, [this, clearAction]() {
+        ui->search_edit->clear();
+        clearAction->setIcon(QIcon(":/res/close_transparent.png")); // 清除文本后，切换回透明图标
+        ui->search_edit->clearFocus();
+        //清除按钮被按下则不显示搜索框
+        ShowSearch(false);
+    });
+
+    ui->search_edit->SetMaxLength(15);
+
+    //连接加载信号和槽
+    connect(ui->chat_user_list, &ChatUserList::sig_loading_chat_user, this, &ChatDialog::slot_loading_chat_user);
+    addChatUserList();
+    //模拟加载自己头像
+    QString head_icon = UserMgr::GetInstance()->GetIcon();
+    if (head_icon.isEmpty()) {
+        head_icon = ":/res/head_1.jpg";
+    }
+    QPixmap pixmap(head_icon); // 加载图片
+    QPixmap scaledPixmap = pixmap.scaled( ui->side_head_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation); // 将图片缩放到label的大小
+    ui->side_head_lb->setPixmap(scaledPixmap); // 将缩放后的图片设置到QLabel上
+    ui->side_head_lb->setScaledContents(true); // 设置QLabel自动缩放图片内容以适应大小
+
+    ui->side_chat_lb->setProperty("state","normal");
+
+    ui->side_chat_lb->SetState("normal","hover","pressed","selected_normal","selected_hover","selected_pressed");
+
+    ui->side_contact_lb->SetState("normal","hover","pressed","selected_normal","selected_hover","selected_pressed");
+
+    ui->side_player_lb->SetState("normal","hover","pressed","selected_normal","selected_hover","selected_pressed");
+
+    AddLBGroup(ui->side_chat_lb);
+    AddLBGroup(ui->side_contact_lb);
+    AddLBGroup(ui->side_player_lb);
+
+    connect(ui->side_chat_lb, &StateWidget::clicked, this, &ChatDialog::slot_side_chat);
+    connect(ui->side_contact_lb, &StateWidget::clicked, this, &ChatDialog::slot_side_contact);
+    //切换播放器页面
+    connect(ui->side_player_lb, &StateWidget::clicked, this, &ChatDialog::slot_side_player);
+
+    //链接搜索框输入变化
+    connect(ui->search_edit, &QLineEdit::textChanged, this, &ChatDialog::slot_text_changed);
+
+    ShowSearch(false);
+
+    //检测鼠标点击位置判断是否要清空搜索框
+    this->installEventFilter(this); // 安装事件过滤器
+
+    //设置聊天label选中状态
+    ui->side_chat_lb->SetSelected(true);
+    //设置选中条目
+    SetSelectChatItem();
+    //更新聊天界面信息
+    SetSelectChatPage();
+
+    //连接加载联系人的信号和槽函数
+    connect(ui->con_user_list, &ContactUserList::sig_loading_contact_user,
+            this, &ChatDialog::slot_loading_contact_user);
+
+    //连接联系人页面点击好友申请条目的信号
+    connect(ui->con_user_list, &ContactUserList::sig_switch_apply_friend_page,
+            this,&ChatDialog::slot_switch_apply_friend_page);
+
+    //连接清除搜索框操作
+    connect(ui->friend_apply_page, &ApplyFriendPage::sig_show_search, this, &ChatDialog::slot_show_search);
+
+    //为searchlist 设置search edit
+    ui->search_list->SetSearchEdit(ui->search_edit);
+
+    //连接申请添加好友信号
+    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_friend_apply, this, &ChatDialog::slot_apply_friend);
+
+    //连接认证添加好友信号
+    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_add_auth_friend, this, &ChatDialog::slot_add_auth_friend);
+
+    //链接自己认证回复信号
+    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_auth_rsp, this,
+            &ChatDialog::slot_auth_rsp);
+
+    //连接点击联系人item发出的信号和用户信息展示槽函数
+    connect(ui->con_user_list, &ContactUserList::sig_switch_friend_info_page,
+            this,&ChatDialog::slot_friend_info_page);
+
+    //设置中心部件为chatpage
+    ui->stackedWidget->setCurrentWidget(ui->chat_page);
+    ui->stackedWidget_2->setCurrentWidget(ui->page);
+
+
+    //连接searchlist跳转聊天信号
+    connect(ui->search_list, &SearchList::sig_jump_chat_item, this, &ChatDialog::slot_jump_chat_item);
+
+    //连接好友信息界面发送的点击事件
+    connect(ui->friend_info_page, &FriendInfoPage::sig_jump_chat_item, this,
+            &ChatDialog::slot_jump_chat_item_from_infopage);
+
+    //连接聊天列表点击信号
+    connect(ui->chat_user_list, &QListWidget::itemClicked, this, &ChatDialog::slot_item_clicked);
+
+    //连接对端消息通知
+    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_text_chat_msg,
+            this, &ChatDialog::slot_text_chat_msg);
+
+    connect(ui->chat_page, &ChatPage::sig_append_send_chat_msg, this, &ChatDialog::slot_append_send_chat_msg);
+
+    // media left panel actions
+    connect(ui->btn_stream_search, &QPushButton::clicked, this, &ChatDialog::slot_media_stream_search);
+    connect(ui->btn_create_session, &QPushButton::clicked, this, &ChatDialog::slot_media_create_session);
+    connect(ui->btn_join_session, &QPushButton::clicked, this, &ChatDialog::slot_media_join_session);
+    connect(ui->list_streams, &QListWidget::itemClicked, this, &ChatDialog::slot_media_stream_item_clicked);
+    connect(ui->list_sessions, &QListWidget::itemClicked, this, &ChatDialog::slot_media_session_item_clicked);
+    connect(ui->combo_play_source_mode, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &ChatDialog::slot_play_source_mode_changed);
+
+    // stream manager -> ui
+    connect(_stream_controller, &StreamController::sig_streams_updated, this, &ChatDialog::slot_media_streams_updated);
+    connect(_stream_controller, &StreamController::sig_sessions_updated, this, &ChatDialog::slot_media_sessions_updated);
+    connect(_stream_controller, &StreamController::sig_play_started, this, &ChatDialog::slot_media_play_started);
+    connect(_stream_controller, &StreamController::sig_play_stopped, this, &ChatDialog::slot_media_play_stopped);
+    connect(_stream_controller, &StreamController::sig_sync_play, this, &ChatDialog::slot_media_sync_play);
+    connect(_stream_controller, &StreamController::sig_status, this, &ChatDialog::slot_media_status);
+
+    // player page controls -> stream manager
+    connect(ui->media_player_page, &mediaplayerpage::sig_ui_play_clicked, this, &ChatDialog::slot_player_ui_play_clicked);
+    connect(ui->media_player_page, &mediaplayerpage::sig_ui_pause_clicked, this, &ChatDialog::slot_player_ui_pause_clicked);
+    connect(ui->media_player_page, &mediaplayerpage::sig_ui_stop_clicked, this, &ChatDialog::slot_player_ui_stop_clicked);
+    connect(ui->media_player_page, &mediaplayerpage::sig_ui_seek_changed, this, &ChatDialog::slot_player_ui_seek_changed);
+    connect(ui->media_player_page, &mediaplayerpage::sig_ui_volume_changed, this, &ChatDialog::slot_player_ui_volume_changed);
+
+    // record button → ChatDialog
+    connect(ui->media_player_page, &mediaplayerpage::sig_ui_record_toggled, this, &ChatDialog::slot_record_toggled);
+
+    // coordinator → ChatDialog（协调器构造好设备 URL，ChatDialog 只管喂给管线）
+    connect(_coordinator, &MediaModeCoordinator::cameraOpenRequested, this, [this](const QString& deviceUrl) {
+        slot_media_status(QStringLiteral("正在打开摄像头: %1").arg(deviceUrl));
+        QWidget* host = ui->media_player_page->videoRenderHostWidget();
+        if (!_media_pipeline->StartPlay(deviceUrl, host)) {
+            slot_media_status(QStringLiteral("摄像头打开失败"));
+            _coordinator->requestCloseCamera();
+            return;
+        }
+
+        ui->media_player_page->SetCurrentStream(QStringLiteral("camera"), deviceUrl);
+        ui->media_player_page->SetSessionText(QStringLiteral("Session: local-device"));
+        ui->media_player_page->SetStatusText(QStringLiteral("Status: Camera Preview"));
+    });
+    connect(_coordinator, &MediaModeCoordinator::cameraCloseRequested, this, [this]() {
+        _media_pipeline->Stop();
+        ui->media_player_page->resetPlaybackTimelineUi();
+        ui->media_player_page->updatePauseToggleUi(false, false);
+        ui->media_player_page->updateRecordButtonUi(false);
+        ui->media_player_page->SetStatusText(QStringLiteral("Status: Idle"));
+        slot_media_status(QStringLiteral("摄像头已关闭"));
+    });
+    connect(_coordinator, &MediaModeCoordinator::recordingStartRequested, this, [this]() {
+        ui->media_player_page->updateRecordButtonUi(true);
+        slot_media_status(QStringLiteral("录制已开始（功能预留）"));
+    });
+    connect(_coordinator, &MediaModeCoordinator::recordingStopRequested, this, [this]() {
+        ui->media_player_page->updateRecordButtonUi(false);
+        slot_media_status(QStringLiteral("录制已停止（功能预留）"));
+    });
+    connect(_coordinator, &MediaModeCoordinator::stateChanged, this, &ChatDialog::slot_coordinator_state_changed);
+    connect(_coordinator, &MediaModeCoordinator::statusMessage, this, &ChatDialog::slot_media_status);
+
+    connect(_media_pipeline, &MediaPipeline::sig_update_progressbar, ui->media_player_page,
+            &mediaplayerpage::syncProgressFromPipeline);
+
+    // preload stream/session data once player module is available
+    ui->combo_play_source_mode->setCurrentIndex(0);
+    SetPlaySourceMode(PlaySourceMode::ServerStream);
+    _stream_controller->RequestStreamList("");
+    _stream_controller->RequestSessionList();
+}
+
+ChatDialog::~ChatDialog()
+{
+    delete ui;
+}
+
+void ChatDialog::slot_item_clicked(QListWidgetItem *item)
+{
+    QWidget *widget = ui->chat_user_list->itemWidget(item); // 获取自定义widget对象
+    if(!widget){
+        qDebug()<< "slot item clicked widget is nullptr";
+        return;
+    }
+
+    // 对自定义widget进行操作， 将item 转化为基类ListItemBase
+    ListItemBase *customItem = qobject_cast<ListItemBase*>(widget);
+    if(!customItem){
+        qDebug()<< "slot item clicked widget is nullptr";
+        return;
+    }
+
+    auto itemType = customItem->GetItemType();
+    if(itemType == ListItemType::INVALID_ITEM
+            || itemType == ListItemType::GROUP_TIP_ITEM){
+        qDebug()<< "slot invalid item clicked ";
+        return;
+    }
+
+
+   if(itemType == ListItemType::CHAT_USER_ITEM){
+       // 创建对话框，提示用户
+       qDebug()<< "contact user item clicked ";
+
+       auto chat_wid = qobject_cast<ChatUserWid*>(customItem);
+       auto user_info = chat_wid->GetUserInfo();
+       //跳转到聊天界面
+       ui->chat_page->SetUserInfo(user_info);
+       _cur_chat_uid = user_info->_uid;
+       return;
+   }
+}
+
+void ChatDialog::slot_text_chat_msg(std::shared_ptr<TextChatMsg> msg)
+{
+    auto find_iter = _chat_items_added.find(msg->_from_uid);
+    if(find_iter != _chat_items_added.end()){
+        qDebug() << "set chat item msg, uid is " << msg->_from_uid;
+        QWidget *widget = ui->chat_user_list->itemWidget(find_iter.value());
+        auto chat_wid = qobject_cast<ChatUserWid*>(widget);
+        if(!chat_wid){
+            return;
+        }
+        chat_wid->updateLastMsg(msg->_chat_msgs);
+        //更新当前聊天页面记录
+        UpdateChatMsg(msg->_chat_msgs);
+        UserMgr::GetInstance()->AppendFriendChatMsg(msg->_from_uid,msg->_chat_msgs);
+        return;
+    }
+
+    //如果没找到，则创建新的插入listwidget
+
+    auto* chat_user_wid = new ChatUserWid();
+    //查询好友信息
+    auto fi_ptr = UserMgr::GetInstance()->GetFriendById(msg->_from_uid);
+    chat_user_wid->SetInfo(fi_ptr);
+    QListWidgetItem* item = new QListWidgetItem;
+    //qDebug()<<"chat_user_wid sizeHint is " << chat_user_wid->sizeHint();
+    item->setSizeHint(chat_user_wid->sizeHint());
+    chat_user_wid->updateLastMsg(msg->_chat_msgs);
+     UserMgr::GetInstance()->AppendFriendChatMsg(msg->_from_uid,msg->_chat_msgs);
+    ui->chat_user_list->insertItem(0, item);
+    ui->chat_user_list->setItemWidget(item, chat_user_wid);
+    _chat_items_added.insert(msg->_from_uid, item);
+
+}
+
+
+bool ChatDialog::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::MouseButtonPress) {
+       QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+       handleGlobalMousePress(mouseEvent);
+    }
+    return QDialog::eventFilter(watched, event);
+}
+
+void ChatDialog::handleGlobalMousePress(QMouseEvent *event)
+{
+    // 实现点击位置的判断和处理逻辑
+    // 先判断是否处于搜索模式，如果不处于搜索模式则直接返回
+    if( _mode != ChatUIMode::SearchMode){
+        return;
+    }
+
+    // 将鼠标点击位置转换为搜索列表坐标系中的位置
+    QPoint posInSearchList = ui->search_list->mapFromGlobal(event->globalPos());
+    // 判断点击位置是否在聊天列表的范围内
+    if (!ui->search_list->rect().contains(posInSearchList)) {
+        // 如果不在聊天列表内，清空输入框
+        ui->search_edit->clear();
+        ShowSearch(false);
+    }
+}
+
+void ChatDialog::CloseFindDlg()
+{
+    ui->search_list->CloseFindDlg();
+}
+
+void ChatDialog::UpdateChatMsg(std::vector<std::shared_ptr<TextChatData> > msgdata)
+{
+    for(auto & msg : msgdata){
+        if(msg->_from_uid != _cur_chat_uid){
+            break;
+        }
+
+        ui->chat_page->AppendChatMsg(msg);
+    }
+}
+
+void ChatDialog::slot_append_send_chat_msg(std::shared_ptr<TextChatData> msgdata) {
+    if (_cur_chat_uid == 0) {
+        return;
+    }
+
+    auto find_iter = _chat_items_added.find(_cur_chat_uid);
+    if (find_iter == _chat_items_added.end()) {
+        return;
+    }
+
+    //转为widget
+    QWidget* widget = ui->chat_user_list->itemWidget(find_iter.value());
+    if (!widget) {
+        return;
+    }
+
+    //判断转化为自定义的widget
+    // 对自定义widget进行操作， 将item 转化为基类ListItemBase
+    ListItemBase* customItem = qobject_cast<ListItemBase*>(widget);
+    if (!customItem) {
+        qDebug() << "qobject_cast<ListItemBase*>(widget) is nullptr";
+        return;
+    }
+
+    auto itemType = customItem->GetItemType();
+    if (itemType == CHAT_USER_ITEM)
+    {
+        auto con_item = qobject_cast<ChatUserWid*>(customItem);
+        if (!con_item)
+        {
+            return;
+        }
+
+        //设置信息
+        auto user_info = con_item->GetUserInfo();
+        user_info->_chat_msgs.push_back(msgdata);
+        std::vector<std::shared_ptr<TextChatData>> msg_vec;
+        msg_vec.push_back(msgdata);
+        UserMgr::GetInstance()->AppendFriendChatMsg(_cur_chat_uid,msg_vec);
+        return;
+    }
+}
+
+void ChatDialog::AddLBGroup(StateWidget* lb)
+{
+    _lb_list.push_back(lb);
+}
+
+
+
+void ChatDialog::addChatUserList()
+{
+    //先按照好友列表加载聊天记录，等以后客户端实现聊天记录数据库之后再按照最后信息排序
+    auto friend_list = UserMgr::GetInstance()->GetChatListPerPage();
+    if (friend_list.empty() == false) {
+        for(auto & friend_ele : friend_list){
+            auto find_iter = _chat_items_added.find(friend_ele->_uid);
+            if(find_iter != _chat_items_added.end()){
+                continue;
+            }
+            auto *chat_user_wid = new ChatUserWid();
+            auto user_info = std::make_shared<UserInfo>(friend_ele);
+            chat_user_wid->SetInfo(user_info);
+            QListWidgetItem *item = new QListWidgetItem;
+            //qDebug()<<"chat_user_wid sizeHint is " << chat_user_wid->sizeHint();
+            item->setSizeHint(chat_user_wid->sizeHint());
+            ui->chat_user_list->addItem(item);
+            ui->chat_user_list->setItemWidget(item, chat_user_wid);
+            _chat_items_added.insert(friend_ele->_uid, item);
+        }
+
+        //更新已加载条目
+        UserMgr::GetInstance()->UpdateChatLoadedCount();
+    }
+
+    //模拟测试条目
+    // 创建QListWidgetItem，并设置自定义的widget
+    for(int i = 0; i < 13; i++){
+        int randomValue = QRandomGenerator::global()->bounded(100); // 生成0到99之间的随机整数
+        int str_i = randomValue%strs.size();
+        int head_i = randomValue%heads.size();
+        int name_i = randomValue%names.size();
+
+        auto *chat_user_wid = new ChatUserWid();
+        auto user_info = std::make_shared<UserInfo>(0,names[name_i],
+                                                    names[name_i],heads[head_i],0,strs[str_i]);
+        chat_user_wid->SetInfo(user_info);
+        QListWidgetItem *item = new QListWidgetItem;
+        //qDebug()<<"chat_user_wid sizeHint is " << chat_user_wid->sizeHint();
+        item->setSizeHint(chat_user_wid->sizeHint());
+        ui->chat_user_list->addItem(item);
+        ui->chat_user_list->setItemWidget(item, chat_user_wid);
+    }
+
+}
+
+void ChatDialog::loadMoreChatUser()
+{
+    auto friend_list = UserMgr::GetInstance()->GetChatListPerPage();
+    if (friend_list.empty() == false) {
+        for(auto & friend_ele : friend_list){
+            auto find_iter = _chat_items_added.find(friend_ele->_uid);
+            if(find_iter != _chat_items_added.end()){
+                continue;
+            }
+            auto *chat_user_wid = new ChatUserWid();
+            auto user_info = std::make_shared<UserInfo>(friend_ele);
+            chat_user_wid->SetInfo(user_info);
+            QListWidgetItem *item = new QListWidgetItem;
+            //qDebug()<<"chat_user_wid sizeHint is " << chat_user_wid->sizeHint();
+            item->setSizeHint(chat_user_wid->sizeHint());
+            ui->chat_user_list->addItem(item);
+            ui->chat_user_list->setItemWidget(item, chat_user_wid);
+            _chat_items_added.insert(friend_ele->_uid, item);
+        }
+
+        //更新已加载条目
+        UserMgr::GetInstance()->UpdateChatLoadedCount();
+    }
+}
+
+
+void ChatDialog::ClearLabelState(StateWidget *lb)
+{
+    for(auto & ele: _lb_list){
+        if(ele == lb){
+            continue;
+        }
+
+        ele->ClearState();
+    }
+}
+
+void ChatDialog::loadMoreConUser()
+{
+    auto friend_list = UserMgr::GetInstance()->GetConListPerPage();
+    if (friend_list.empty() == false) {
+        for(auto & friend_ele : friend_list){
+            auto *chat_user_wid = new ConUserItem();
+            chat_user_wid->SetInfo(friend_ele->_uid,friend_ele->_name,
+                                   friend_ele->_icon);
+            QListWidgetItem *item = new QListWidgetItem;
+            //qDebug()<<"chat_user_wid sizeHint is " << chat_user_wid->sizeHint();
+            item->setSizeHint(chat_user_wid->sizeHint());
+            ui->con_user_list->addItem(item);
+            ui->con_user_list->setItemWidget(item, chat_user_wid);
+        }
+
+        //更新已加载条目
+        UserMgr::GetInstance()->UpdateContactLoadedCount();
+    }
+}
+
+void ChatDialog::SetSelectChatItem(int uid)
+{
+    if(ui->chat_user_list->count() <= 0){
+        return;
+    }
+
+    if(uid == 0){
+        ui->chat_user_list->setCurrentRow(0);
+        QListWidgetItem *firstItem = ui->chat_user_list->item(0);
+        if(!firstItem){
+            return;
+        }
+
+        //转为widget
+        QWidget *widget = ui->chat_user_list->itemWidget(firstItem);
+        if(!widget){
+            return;
+        }
+
+        auto con_item = qobject_cast<ChatUserWid*>(widget);
+        if(!con_item){
+            return;
+        }
+
+        _cur_chat_uid = con_item->GetUserInfo()->_uid;
+
+        return;
+    }
+
+    auto find_iter = _chat_items_added.find(uid);
+    if(find_iter == _chat_items_added.end()){
+        qDebug() << "uid " <<uid<< " not found, set curent row 0";
+        ui->chat_user_list->setCurrentRow(0);
+        return;
+    }
+
+    ui->chat_user_list->setCurrentItem(find_iter.value());
+
+    _cur_chat_uid = uid;
+}
+
+void ChatDialog::SetSelectChatPage(int uid)
+{
+    if( ui->chat_user_list->count() <= 0){
+        return;
+    }
+
+    if (uid == 0) {
+       auto item = ui->chat_user_list->item(0);
+       //转为widget
+       QWidget* widget = ui->chat_user_list->itemWidget(item);
+       if (!widget) {
+           return;
+       }
+
+       auto con_item = qobject_cast<ChatUserWid*>(widget);
+       if (!con_item) {
+           return;
+       }
+
+       //设置信息
+       auto user_info = con_item->GetUserInfo();
+       ui->chat_page->SetUserInfo(user_info);
+       return;
+    }
+
+    auto find_iter = _chat_items_added.find(uid);
+    if(find_iter == _chat_items_added.end()){
+        return;
+    }
+
+    //转为widget
+    QWidget *widget = ui->chat_user_list->itemWidget(find_iter.value());
+    if(!widget){
+        return;
+    }
+
+    //判断转化为自定义的widget
+    // 对自定义widget进行操作， 将item 转化为基类ListItemBase
+    ListItemBase *customItem = qobject_cast<ListItemBase*>(widget);
+    if(!customItem){
+        qDebug()<< "qobject_cast<ListItemBase*>(widget) is nullptr";
+        return;
+    }
+
+    auto itemType = customItem->GetItemType();
+    if(itemType == CHAT_USER_ITEM){
+        auto con_item = qobject_cast<ChatUserWid*>(customItem);
+        if(!con_item){
+            return;
+        }
+
+        //设置信息
+        auto user_info = con_item->GetUserInfo();
+        ui->chat_page->SetUserInfo(user_info);
+
+        return;
+    }
+
+}
+
+
+void ChatDialog::ShowSearch(bool bsearch)
+{
+    // Player mode uses dedicated left page; skip chat/contact search toggling.
+    if (_state == ChatUIMode::ShowPlayer) {
+        ui->chat_user_list->hide();
+        ui->con_user_list->hide();
+        ui->search_list->hide();
+        _mode = ChatUIMode::ShowPlayer;
+        ui->search_list->CloseFindDlg();
+        ui->search_edit->clear();
+        ui->search_edit->clearFocus();
+        return;
+    }
+
+    if(bsearch){
+        ui->chat_user_list->hide();
+        ui->con_user_list->hide();
+        ui->search_list->show();
+        _mode = ChatUIMode::SearchMode;
+    }else if(_state == ChatUIMode::ChatMode){
+        ui->chat_user_list->show();
+        ui->con_user_list->hide();
+        ui->search_list->hide();
+        _mode = ChatUIMode::ChatMode;
+        ui->search_list->CloseFindDlg();
+        ui->search_edit->clear();
+        ui->search_edit->clearFocus();
+    }else if(_state == ChatUIMode::ContactMode){
+        ui->chat_user_list->hide();
+        ui->search_list->hide();
+        ui->con_user_list->show();
+        _mode = ChatUIMode::ContactMode;
+        ui->search_list->CloseFindDlg();
+        ui->search_edit->clear();
+        ui->search_edit->clearFocus();
+    }
+}
+
+void ChatDialog::slot_loading_chat_user()
+{
+    if(_b_loading){
+        return;
+    }
+
+    _b_loading = true;
+    LoadingDlg *loadingDialog = new LoadingDlg(this);
+    loadingDialog->setModal(true);
+    loadingDialog->show();
+    qDebug() << "add new data to list.....";
+    loadMoreChatUser();
+    // 加载完成后关闭对话框
+    loadingDialog->deleteLater();
+
+    _b_loading = false;
+}
+
+void ChatDialog::slot_side_chat()
+{
+    qDebug()<< "receive side chat clicked";
+    ClearLabelState(ui->side_chat_lb);
+    ui->stackedWidget_2->setCurrentWidget(ui->page);
+    ui->stackedWidget->setCurrentWidget(ui->chat_page);
+    _state = ChatUIMode::ChatMode;
+    ShowSearch(false);
+}
+
+void ChatDialog::slot_side_contact(){
+    qDebug()<< "receive side contact clicked";
+    ClearLabelState(ui->side_contact_lb);
+    ui->stackedWidget_2->setCurrentWidget(ui->page);
+    //设置
+    if(_last_widget == nullptr){
+        ui->stackedWidget->setCurrentWidget(ui->friend_apply_page);
+        _last_widget = ui->friend_apply_page;
+    }else{
+        ui->stackedWidget->setCurrentWidget(_last_widget);
+    }
+
+    _state = ChatUIMode::ContactMode;
+    ShowSearch(false);
+}
+
+void ChatDialog::slot_side_player()
+{
+    qDebug() << "receive side player clicked";
+    ClearLabelState(ui->side_player_lb);
+    ui->stackedWidget_2->setCurrentWidget(ui->page_2);
+    ui->stackedWidget->setCurrentWidget(ui->media_player_page);
+    _state = ChatUIMode::ShowPlayer;
+    ShowSearch(false);
+    _stream_controller->RequestStreamList(ui->edit_stream_search->text().trimmed());
+    _stream_controller->RequestSessionList();
+}
+
+void ChatDialog::slot_text_changed(const QString &str)
+{
+    //qDebug()<< "receive slot text changed str is " << str;
+    if (_state == ChatUIMode::ShowPlayer) {
+        return;
+    }
+
+    if (!str.isEmpty()) {
+        ShowSearch(true);
+    }
+}
+
+void ChatDialog::slot_focus_out()
+{
+    qDebug()<< "receive focus out signal";
+    ShowSearch(false);
+}
+
+void ChatDialog::slot_loading_contact_user()
+{
+    qDebug() << "slot loading contact user";
+    if(_b_loading){
+        return;
+    }
+
+    _b_loading = true;
+    LoadingDlg *loadingDialog = new LoadingDlg(this);
+    loadingDialog->setModal(true);
+    loadingDialog->show();
+    qDebug() << "add new data to list.....";
+    loadMoreConUser();
+    // 加载完成后关闭对话框
+    loadingDialog->deleteLater();
+
+    _b_loading = false;
+}
+
+void ChatDialog::slot_switch_apply_friend_page()
+{
+    qDebug()<<"receive switch apply friend page sig";
+    _last_widget = ui->friend_apply_page;
+    ui->stackedWidget->setCurrentWidget(ui->friend_apply_page);
+}
+
+void ChatDialog::slot_friend_info_page(std::shared_ptr<UserInfo> user_info)
+{
+    qDebug()<<"receive switch friend info page sig";
+    _last_widget = ui->friend_info_page;
+    ui->stackedWidget->setCurrentWidget(ui->friend_info_page);
+    ui->friend_info_page->SetInfo(user_info);
+}
+
+
+
+void ChatDialog::slot_show_search(bool show)
+{
+    ShowSearch(show);
+}
+
+void ChatDialog::slot_apply_friend(std::shared_ptr<AddFriendApply> apply)
+{
+	qDebug() << "receive apply friend slot, applyuid is " << apply->_from_uid << " name is "
+		<< apply->_name << " desc is " << apply->_desc;
+
+   bool b_already = UserMgr::GetInstance()->AlreadyApply(apply->_from_uid);
+   if(b_already){
+        return;
+   }
+
+   UserMgr::GetInstance()->AddApplyList(std::make_shared<ApplyInfo>(apply));
+    ui->side_contact_lb->ShowRedPoint(true);
+    ui->con_user_list->ShowRedPoint(true);
+    ui->friend_apply_page->AddNewApply(apply);
+}
+
+void ChatDialog::slot_add_auth_friend(std::shared_ptr<AuthInfo> auth_info) {
+    qDebug() << "receive slot_add_auth__friend uid is " << auth_info->_uid
+        << " name is " << auth_info->_name << " nick is " << auth_info->_nick;
+
+    //判断如果已经是好友则跳过
+    auto bfriend = UserMgr::GetInstance()->CheckFriendById(auth_info->_uid);
+    if(bfriend){
+        return;
+    }
+
+    UserMgr::GetInstance()->AddFriend(auth_info);
+
+    int randomValue = QRandomGenerator::global()->bounded(100); // 生成0到99之间的随机整数
+    int str_i = randomValue % strs.size();
+    int head_i = randomValue % heads.size();
+    int name_i = randomValue % names.size();
+
+    auto* chat_user_wid = new ChatUserWid();
+    auto user_info = std::make_shared<UserInfo>(auth_info);
+    chat_user_wid->SetInfo(user_info);
+    QListWidgetItem* item = new QListWidgetItem;
+    //qDebug()<<"chat_user_wid sizeHint is " << chat_user_wid->sizeHint();
+    item->setSizeHint(chat_user_wid->sizeHint());
+    ui->chat_user_list->insertItem(0, item);
+    ui->chat_user_list->setItemWidget(item, chat_user_wid);
+    _chat_items_added.insert(auth_info->_uid, item);
+}
+
+void ChatDialog::slot_auth_rsp(std::shared_ptr<AuthRsp> auth_rsp)
+{
+    qDebug() << "receive slot_auth_rsp uid is " << auth_rsp->_uid
+        << " name is " << auth_rsp->_name << " nick is " << auth_rsp->_nick;
+
+    //判断如果已经是好友则跳过
+    auto bfriend = UserMgr::GetInstance()->CheckFriendById(auth_rsp->_uid);
+    if(bfriend){
+        return;
+    }
+
+    UserMgr::GetInstance()->AddFriend(auth_rsp);
+    int randomValue = QRandomGenerator::global()->bounded(100); // 生成0到99之间的随机整数
+    int str_i = randomValue % strs.size();
+    int head_i = randomValue % heads.size();
+    int name_i = randomValue % names.size();
+
+    auto* chat_user_wid = new ChatUserWid();
+    auto user_info = std::make_shared<UserInfo>(auth_rsp);
+    chat_user_wid->SetInfo(user_info);
+    QListWidgetItem* item = new QListWidgetItem;
+    //qDebug()<<"chat_user_wid sizeHint is " << chat_user_wid->sizeHint();
+    item->setSizeHint(chat_user_wid->sizeHint());
+    ui->chat_user_list->insertItem(0, item);
+    ui->chat_user_list->setItemWidget(item, chat_user_wid);
+    _chat_items_added.insert(auth_rsp->_uid, item);
+}
+
+void ChatDialog::slot_jump_chat_item(std::shared_ptr<SearchInfo> si)
+{
+    qDebug() << "slot jump chat item " << endl;
+    auto find_iter = _chat_items_added.find(si->_uid);
+    if(find_iter != _chat_items_added.end()){
+        qDebug() << "jump to chat item , uid is " << si->_uid;
+        ui->chat_user_list->scrollToItem(find_iter.value());
+        ui->side_chat_lb->SetSelected(true);
+        SetSelectChatItem(si->_uid);
+        //更新聊天界面信息
+        SetSelectChatPage(si->_uid);
+        slot_side_chat();
+        return;
+    }
+
+    //如果没找到，则创建新的插入listwidget
+
+    auto* chat_user_wid = new ChatUserWid();
+    auto user_info = std::make_shared<UserInfo>(si);
+    chat_user_wid->SetInfo(user_info);
+    QListWidgetItem* item = new QListWidgetItem;
+    //qDebug()<<"chat_user_wid sizeHint is " << chat_user_wid->sizeHint();
+    item->setSizeHint(chat_user_wid->sizeHint());
+    ui->chat_user_list->insertItem(0, item);
+    ui->chat_user_list->setItemWidget(item, chat_user_wid);
+
+    _chat_items_added.insert(si->_uid, item);
+
+    ui->side_chat_lb->SetSelected(true);
+    SetSelectChatItem(si->_uid);
+    //更新聊天界面信息
+    SetSelectChatPage(si->_uid);
+    slot_side_chat();
+
+}
+
+void ChatDialog::slot_jump_chat_item_from_infopage(std::shared_ptr<UserInfo> user_info)
+{
+    qDebug() << "slot jump chat item " << endl;
+    auto find_iter = _chat_items_added.find(user_info->_uid);
+    if(find_iter != _chat_items_added.end()){
+        qDebug() << "jump to chat item , uid is " << user_info->_uid;
+        ui->chat_user_list->scrollToItem(find_iter.value());
+        ui->side_chat_lb->SetSelected(true);
+        SetSelectChatItem(user_info->_uid);
+        //更新聊天界面信息
+        SetSelectChatPage(user_info->_uid);
+        slot_side_chat();
+        return;
+    }
+
+    //如果没找到，则创建新的插入listwidget
+
+    auto* chat_user_wid = new ChatUserWid();
+    chat_user_wid->SetInfo(user_info);
+    QListWidgetItem* item = new QListWidgetItem;
+    //qDebug()<<"chat_user_wid sizeHint is " << chat_user_wid->sizeHint();
+    item->setSizeHint(chat_user_wid->sizeHint());
+    ui->chat_user_list->insertItem(0, item);
+    ui->chat_user_list->setItemWidget(item, chat_user_wid);
+
+    _chat_items_added.insert(user_info->_uid, item);
+
+    ui->side_chat_lb->SetSelected(true);
+    SetSelectChatItem(user_info->_uid);
+    //更新聊天界面信息
+    SetSelectChatPage(user_info->_uid);
+    slot_side_chat();
+}
+
+void ChatDialog::slot_media_stream_search()
+{
+    const QString keyword = ui->edit_stream_search->text().trimmed();
+    _stream_controller->RequestStreamList(keyword);
+    slot_media_status(QString("检索中: %1").arg(keyword.isEmpty() ? "全部流" : keyword));
+}
+
+void ChatDialog::slot_media_create_session()
+{
+    while (true) {
+        bool ok = false;
+        const QString streamId = QInputDialog::getText(
+            this,
+            QStringLiteral("创建会话"),
+            QStringLiteral("请输入 stream_id（必须在可播放流列表中）"),
+            QLineEdit::Normal,
+            _selected_stream_id,
+            &ok).trimmed();
+        if (!ok) {
+            return;
+        }
+
+        if (streamId.isEmpty()) {
+            QMessageBox::warning(this, QStringLiteral("无效输入"), QStringLiteral("stream_id 不能为空，请重新输入。"));
+            continue;
+        }
+
+        if (!isStreamIdPlayable(streamId)) {
+            QMessageBox::warning(this, QStringLiteral("无效输入"), QStringLiteral("stream_id 不存在于可播放流列表，请重新输入。"));
+            continue;
+        }
+
+        // 通信处理由 StreamController 负责，便于后续扩展。
+        _stream_controller->CreateSession(streamId);
+        slot_media_status(QString("创建会话请求: %1").arg(streamId));
+        return;
+    }
+}
+
+void ChatDialog::slot_media_join_session()
+{
+    if (_selected_session_id.isEmpty()) {
+        slot_media_status("请先在会话列表中选择一个会话");
+        return;
+    }
+
+    _stream_controller->JoinSession(_selected_session_id, _selected_session_stream_id);
+    slot_media_status(QString("加入会话请求: %1").arg(_selected_session_id));
+}
+
+void ChatDialog::slot_media_stream_item_clicked(QListWidgetItem *item)
+{
+    _selected_stream_id = item->data(Qt::UserRole).toString();
+    if (_selected_stream_id.isEmpty()) {
+        _selected_stream_id = item->text();
+    }
+    ui->lb_collab_mode->setText(QString("模式: 已选择流 %1").arg(_selected_stream_id));
+}
+
+void ChatDialog::slot_media_session_item_clicked(QListWidgetItem *item)
+{
+    _selected_session_id = item->data(Qt::UserRole).toString();
+    _selected_session_stream_id = item->data(Qt::UserRole + 1).toString();
+    if (_selected_session_id.isEmpty()) {
+        _selected_session_id = item->text();
+    }
+    ui->lb_collab_master->setText(QString("主控: 会话 %1").arg(_selected_session_id));
+    ui->media_player_page->SetSessionText(QString("Session: %1").arg(_selected_session_id));
+}
+
+void ChatDialog::slot_media_streams_updated(QJsonArray streams)
+{
+    _latest_streams = streams;
+    ui->list_streams->clear();
+    for (const auto& v : streams) {
+        const QJsonObject obj = v.toObject();
+        const QString streamId = obj.value("stream_id").toString();
+        const QString name = obj.value("name").toString();
+        const QString url = obj.value("url").toString();
+        QListWidgetItem* item = new QListWidgetItem(QString("%1 (%2)").arg(name.isEmpty() ? streamId : name, streamId));
+        item->setData(Qt::UserRole, streamId);
+        item->setData(Qt::UserRole + 1, url);
+        ui->list_streams->addItem(item);
+    }
+    slot_media_status(QString("stream list updated: %1").arg(streams.size()));
+    if (_pending_pick_server_stream) {
+        _pending_pick_server_stream = false;
+        tryStartPlayFromServerList();
+    }
+}
+
+void ChatDialog::slot_media_sessions_updated(QJsonArray sessions)
+{
+    ui->list_sessions->clear();
+    for (const auto& v : sessions) {
+        const QJsonObject obj = v.toObject();
+        const QString sessionId = obj.value("session_id").toString();
+        const QString name = obj.value("session_name").toString();
+        const QString streamId = obj.value("current_stream_id").toString();
+        QListWidgetItem* item = new QListWidgetItem(QString("%1 (%2)").arg(name.isEmpty() ? sessionId : name, sessionId));
+        item->setData(Qt::UserRole, sessionId);
+        item->setData(Qt::UserRole + 1, streamId);
+        ui->list_sessions->addItem(item);
+    }
+    slot_media_status(QString("会话列表更新: %1 条").arg(sessions.size()));
+}
+
+void ChatDialog::slot_media_play_started(QString streamId, QString playUrl, QString sessionId)
+{
+    _current_play_is_local = false;
+    ui->media_player_page->SetCurrentStream(streamId, playUrl);
+    ui->media_player_page->SetSessionText(QString("Session: %1").arg(sessionId.isEmpty() ? "room_default" : sessionId));
+    ui->media_player_page->SetStatusText("Status: Playing");
+    ui->lb_collab_mode->setText(QString("mode: playing %1").arg(streamId));
+    if (!_media_pipeline->StartPlay(playUrl, ui->media_player_page->videoRenderHostWidget())) {
+        ui->media_player_page->resetPlaybackTimelineUi();
+        ui->media_player_page->updatePauseToggleUi(false, false);
+        ui->media_player_page->SetStatusText(QStringLiteral("Status: Playback failed"));
+        slot_media_status(QStringLiteral("local playback start failed"));
+    } else {
+        ui->media_player_page->updatePauseToggleUi(true, false);
+    }
+}
+
+void ChatDialog::slot_media_play_stopped()
+{
+    _media_pipeline->Stop();
+    ui->media_player_page->resetPlaybackTimelineUi();
+    ui->media_player_page->updatePauseToggleUi(false, false);
+    ui->media_player_page->SetStatusText("Status: Idle");
+    ui->lb_collab_mode->setText("模式: 已停止");
+}
+
+void ChatDialog::slot_media_sync_play(QString streamId, QString playUrl, QString sessionId)
+{
+    _current_play_is_local = false;
+    ui->media_player_page->SetCurrentStream(streamId, playUrl);
+    ui->media_player_page->SetSessionText(QString("Session: %1").arg(sessionId));
+    ui->media_player_page->SetStatusText("Status: Synced Playing");
+    if (!_media_pipeline->StartPlay(playUrl, ui->media_player_page->videoRenderHostWidget())) {
+        ui->media_player_page->resetPlaybackTimelineUi();
+        ui->media_player_page->updatePauseToggleUi(false, false);
+        ui->media_player_page->SetStatusText(QStringLiteral("Status: Sync playback failed"));
+        slot_media_status(QStringLiteral("sync local playback failed"));
+    } else {
+        ui->media_player_page->updatePauseToggleUi(true, false);
+    }
+}
+
+void ChatDialog::slot_media_status(QString text)
+{
+    ui->media_player_page->SetStatusText(QString("Status: %1").arg(text));
+}
+
+bool ChatDialog::isStreamIdPlayable(const QString& streamId) const
+{
+    if (streamId.isEmpty()) {
+        return false;
+    }
+
+    // 优先使用最新的服务端列表，避免与 UI 状态耦合。
+    if (!_latest_streams.isEmpty()) {
+        for (const auto& value : _latest_streams) {
+            const QJsonObject obj = value.toObject();
+            if (obj.value("stream_id").toString() == streamId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // 若尚未获取服务端列表，则回退到当前 UI 列表。
+    for (int i = 0; i < ui->list_streams->count(); ++i) {
+        const auto* item = ui->list_streams->item(i);
+        const QString id = item->data(Qt::UserRole).toString();
+        if (!id.isEmpty() ? id == streamId : item->text() == streamId) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void ChatDialog::slot_play_source_mode_changed(int index)
+{
+    if (index == static_cast<int>(PlaySourceMode::LocalFile)) {
+        SetPlaySourceMode(PlaySourceMode::LocalFile);
+        return;
+    }
+    if (index == static_cast<int>(PlaySourceMode::LocalDevice)) {
+        SetPlaySourceMode(PlaySourceMode::LocalDevice);
+        return;
+    }
+    SetPlaySourceMode(PlaySourceMode::ServerStream);
+}
+
+void ChatDialog::slot_player_ui_play_clicked()
+{
+    if (_play_source_mode == PlaySourceMode::LocalFile) {
+        startLocalFilePlayback();
+        return;
+    }
+
+
+	// 本地设备模式：通过协调器请求打开摄像头
+	if (_play_source_mode == PlaySourceMode::LocalDevice) {
+		_coordinator->requestOpenCamera();
+		return;
+	}
+
+    _pending_pick_server_stream = true;
+    _stream_controller->RequestStreamList(ui->edit_stream_search->text().trimmed());
+    slot_media_status(QStringLiteral("Requesting stream list from server"));
+}
+
+void ChatDialog::slot_player_ui_stop_clicked()
+{
+    _media_pipeline->Stop();
+    ui->media_player_page->resetPlaybackTimelineUi();
+    ui->media_player_page->updatePauseToggleUi(false, false);
+    if (!_current_play_is_local) {
+        _stream_controller->StopStream(_selected_session_id, _selected_stream_id);
+    }
+    _current_play_is_local = false;
+
+    // 若当前为摄像头预览模式，通过协调器关闭摄像头
+    if (_coordinator->isCameraActive()) {
+        _coordinator->requestCloseCamera();
+        return;
+    }
+    // 通知协调器：播放已停止（协调器会回到 Idle 状态）
+    _coordinator->notifyPlayStopped();
+}
+
+void ChatDialog::slot_player_ui_pause_clicked()
+{
+    if (!_media_pipeline->hasActiveSession()) {
+        slot_media_status(QStringLiteral("当前无本地播放，请先开始播放"));
+        return;
+    }
+    if (_media_pipeline->isPlaybackPaused()) {
+        // 恢复播放
+        _media_pipeline->Pause(false);
+        ui->media_player_page->updatePauseToggleUi(true, false);
+        ui->media_player_page->SetStatusText(QStringLiteral("Status: Playing"));
+        slot_media_status(QStringLiteral("已继续播放"));
+        // 通知服务端恢复播放（复用 play 请求或单独的 resume）
+        if (!_current_play_is_local) {
+            // 服务端 MediaPauseHandler 对 position_ms 有默认值 0，此处暂传 0
+            _stream_controller->PauseStream(_selected_session_id, _selected_stream_id, false, 0);
+        }
+        return;
+    }
+    _media_pipeline->Pause(true);
+    ui->media_player_page->updatePauseToggleUi(true, true);
+    ui->media_player_page->SetStatusText(QStringLiteral("Status: Paused"));
+    slot_media_status(QStringLiteral("已暂停本地播放"));
+    // 通知服务端暂停
+    if (!_current_play_is_local) {
+        _stream_controller->PauseStream(_selected_session_id, _selected_stream_id, true, 0);
+    }
+}
+
+void ChatDialog::slot_player_ui_seek_changed(int value)
+{
+    _media_pipeline->SeekMs(static_cast<qint64>(value) * 1000);
+    slot_media_status(QString("拖动进度到 %1s").arg(value));
+}
+
+void ChatDialog::slot_player_ui_volume_changed(int value)
+{
+    _media_pipeline->SetVolume(value);
+    slot_media_status(QString("音量 %1%").arg(value));
+}
+
+void ChatDialog::SetPlaySourceMode(PlaySourceMode mode)
+{
+    _play_source_mode = mode;
+
+    // 同步到协调器（映射 PlaySourceMode → PlaySourceKind）
+    PlaySourceKind kind;
+    switch (mode) {
+    case PlaySourceMode::ServerStream: kind = PlaySourceKind::ServerStream; break;
+    case PlaySourceMode::LocalFile:    kind = PlaySourceKind::LocalFile;    break;
+    case PlaySourceMode::LocalDevice:  kind = PlaySourceKind::LocalDevice;  break;
+    }
+    _coordinator->switchSourceKind(kind);
+
+    if (mode == PlaySourceMode::ServerStream) {
+        slot_media_status(QStringLiteral("Play mode: server stream"));
+    } else if (mode == PlaySourceMode::LocalFile) {
+        slot_media_status(QStringLiteral("Play mode: local file"));
+    } else {
+        slot_media_status(QStringLiteral("Play mode: local device (camera)"));
+    }
+}
+
+void ChatDialog::tryStartPlayFromServerList()
+{
+    if (_latest_streams.isEmpty()) {
+        slot_media_status(QStringLiteral("No stream returned from server"));
+        return;
+    }
+
+    QDialog picker(this);
+    picker.setWindowTitle(QStringLiteral("Select Stream"));
+    picker.resize(760, 420);
+
+    auto* table = new QTableWidget(&picker);
+    table->setColumnCount(3);
+    table->setHorizontalHeaderLabels({QStringLiteral("stream_id"), QStringLiteral("url"), QStringLiteral("owner_id")});
+    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    table->setSelectionMode(QAbstractItemView::SingleSelection);
+    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    table->setRowCount(_latest_streams.size());
+
+    for (int i = 0; i < _latest_streams.size(); ++i) {
+        const auto obj = _latest_streams.at(i).toObject();
+        const QString streamId = obj.value("stream_id").toString();
+        const QString url = obj.value("url").toString();
+        const QString ownerId = QString::number(obj.value("owner_id").toInt());
+
+        auto* streamItem = new QTableWidgetItem(streamId);
+        streamItem->setData(Qt::UserRole, streamId);
+        streamItem->setData(Qt::UserRole + 1, url);
+        table->setItem(i, 0, streamItem);
+        table->setItem(i, 1, new QTableWidgetItem(url));
+        table->setItem(i, 2, new QTableWidgetItem(ownerId));
+    }
+
+    if (table->rowCount() > 0) {
+        table->selectRow(0);
+    }
+
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &picker);
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &picker, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &picker, &QDialog::reject);
+    QObject::connect(table, &QTableWidget::doubleClicked, &picker, &QDialog::accept);
+
+    auto* layout = new QVBoxLayout(&picker);
+    layout->addWidget(table);
+    layout->addWidget(buttons);
+
+    if (picker.exec() != QDialog::Accepted) {
+        slot_media_status(QStringLiteral("Cancelled stream selection"));
+        return;
+    }
+
+    const int row = table->currentRow();
+    if (row < 0 || row >= table->rowCount()) {
+        slot_media_status(QStringLiteral("No stream selected"));
+        return;
+    }
+
+    _selected_stream_id = table->item(row, 0)->data(Qt::UserRole).toString();
+    const QString selectedUrl = table->item(row, 0)->data(Qt::UserRole + 1).toString();
+
+    if (_selected_session_id.isEmpty() && ui->list_sessions->count() > 0) {
+        auto* first = ui->list_sessions->item(0);
+        _selected_session_id = first->data(Qt::UserRole).toString();
+    }
+
+    if (_selected_stream_id.isEmpty()) {
+        slot_media_status(QStringLiteral("Invalid stream selection"));
+        return;
+    }
+
+    ui->media_player_page->SetCurrentStream(_selected_stream_id, selectedUrl);
+    _stream_controller->PlayStream(_selected_stream_id, _selected_session_id, selectedUrl);
+    slot_media_status(QStringLiteral("Play request sent"));
+}
+
+void ChatDialog::startLocalFilePlayback()
+{
+    const QString path = QFileDialog::getOpenFileName(
+        this,
+        QStringLiteral("Select Local Media File"),
+        QString(),
+        QStringLiteral("Media Files (*.mp4 *.mkv *.flv *.avi *.mov *.mp3 *.aac *.wav);;All Files (*.*)"));
+
+    if (path.isEmpty()) {
+        slot_media_status(QStringLiteral("Cancelled local file selection"));
+        return;
+    }
+
+    if (!_media_pipeline->StartPlay(path, ui->media_player_page->videoRenderHostWidget())) {
+        ui->media_player_page->resetPlaybackTimelineUi();
+        ui->media_player_page->updatePauseToggleUi(false, false);
+        ui->media_player_page->SetStatusText(QStringLiteral("Status: Local playback failed"));
+        slot_media_status(QStringLiteral("Local playback failed"));
+        _current_play_is_local = false;
+        return;
+    }
+
+    _current_play_is_local = true;
+    ui->media_player_page->SetCurrentStream(QStringLiteral("local_file"), path);
+    ui->media_player_page->SetSessionText(QStringLiteral("Session: local"));
+    ui->media_player_page->SetStatusText(QStringLiteral("Status: Local Playing"));
+    ui->media_player_page->updatePauseToggleUi(true, false);
+    slot_media_status(QStringLiteral("Local playback started"));
+}
+
+// ============================================================================
+// 录制按钮处理
+// ============================================================================
+
+void ChatDialog::slot_record_toggled(bool start)
+{
+    if (start) {
+        _coordinator->requestStartRecording();
+    } else {
+        _coordinator->requestStopRecording();
+    }
+}
+
+// ============================================================================
+// 协调器状态变更 → UI 刷新
+// ============================================================================
+
+void ChatDialog::slot_coordinator_state_changed(CoordinatorState oldState, CoordinatorState newState)
+{
+    Q_UNUSED(oldState);
+
+    const bool cameraActive = (newState == CoordinatorState::Previewing
+                               || newState == CoordinatorState::Recording);
+    const bool recording   = (newState == CoordinatorState::Recording);
+
+    ui->media_player_page->updateRecordButtonUi(recording);
+
+    // 摄像头模式下隐藏进度条（直播源无 duration）；点播源恢复显示
+    ui->media_player_page->setTimelineVisible(!cameraActive);
+}

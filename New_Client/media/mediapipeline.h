@@ -1,0 +1,57 @@
+#ifndef MEDIAPIPELINE_H
+#define MEDIAPIPELINE_H
+
+#include <QObject>
+#include <QPointer>
+#include <QString>
+#include <memory>
+#include "AVDecodeAbstract.h"
+
+class QWidget;
+class QTimer;
+class DecodePipeline;
+class QtGlVideoRenderer;
+class SdlAudioOutput;
+
+// MediaPipeline：DecodePipeline 解码 + QtGlVideoRenderer 呈现（GUI 线程定时 try_pop 视频帧）。
+class MediaPipeline : public QObject
+{
+    Q_OBJECT
+public:
+    explicit MediaPipeline(QObject *parent = nullptr);
+    ~MediaPipeline() override;
+
+    bool StartPlay(const QString& playUrl, QWidget* renderHost);
+    void Pause(bool pause);
+    void Stop();
+    void SeekMs(qint64 posMs);
+    void SetVolume(int vol);
+
+    [[nodiscard]] bool hasActiveSession() const noexcept { return static_cast<bool>(decoder_); }
+    [[nodiscard]] bool isPlaybackPaused() const noexcept { return paused_; }
+
+private slots:
+    void onPullVideoFrame();
+
+    void onUpdateProgressbar();
+
+private:
+    std::unique_ptr<DecodePipeline> decoder_;
+    QtGlVideoRenderer* video_renderer_{nullptr};
+    QTimer* pull_timer_{nullptr};
+    QPointer<QWidget> render_host_;
+    bool paused_{false};
+    std::unique_ptr<SdlAudioOutput> audio_output_;
+
+    QTimer * progress_timer{nullptr};  //不停地向ui界面发送当前进度时间以及总时间，来更新进度条
+
+    /**
+     * 视频 FIFO 里最前面的帧若 PTS 远大于音频主钟，不能直接丢掉（还须按顺序播）。
+     * 先攒在此，等音频主钟追上再参与与队列后续帧的合成。
+     */
+    AvFrameUniquePtr pending_early_video_;
+signals:
+    void sig_update_progressbar(qint64 positionMs, qint64 durationMs);
+};
+
+#endif // MEDIAPIPELINE_H
